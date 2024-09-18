@@ -1,3 +1,5 @@
+William Baltus, wjb40@duke.edu, 1391317
+
 How it works:
 
 1. I determine if it is add or subtract based on opcode.
