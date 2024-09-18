@@ -1,3 +1,4 @@
+// ALU Module
 module alu(
     data_operandA,
     data_operandB,
@@ -13,15 +14,10 @@ module alu(
     output [31:0] data_result;
     output isNotEqual, isLessThan, overflow;
 
-    // Define operation codes (unused as we cannot compare using '==')
-    // parameter ADD_OPCODE = 5'b00000;
-    // parameter SUB_OPCODE = 5'b00001;
-
     // Control signal for subtraction
     wire is_subtract;
 
     // Generate 'is_subtract' signal using gates
-    // is_subtract = (ctrl_ALUopcode == 5'b00001)
     wire n_ctrl_ALUopcode_4, n_ctrl_ALUopcode_3, n_ctrl_ALUopcode_2, n_ctrl_ALUopcode_1;
     not not4(n_ctrl_ALUopcode_4, ctrl_ALUopcode[4]);
     not not3(n_ctrl_ALUopcode_3, ctrl_ALUopcode[3]);
@@ -29,30 +25,31 @@ module alu(
     not not1(n_ctrl_ALUopcode_1, ctrl_ALUopcode[1]);
     and is_subtract_gate(is_subtract, n_ctrl_ALUopcode_4, n_ctrl_ALUopcode_3, n_ctrl_ALUopcode_2, n_ctrl_ALUopcode_1, ctrl_ALUopcode[0]);
 
-    // Invert data_operandB
+    // Invert data_operandB if subtracting
     wire [31:0] data_operandB_inverted;
-
-    genvar i;
-    generate
-        for (i = 0; i < 32; i = i + 1) begin : invert_B
-            not not_gate(data_operandB_inverted[i], data_operandB[i]);
-        end
-    endgenerate
-
-    // Select correct version of data_operandB
     wire [31:0] operandB_selected;
 
+    // Generate inversion of data_operandB and select operandB since I cannot use ~
+    genvar i;
     generate
-        for (i = 0; i < 32; i = i + 1) begin : select_B
-            assign operandB_selected[i] = is_subtract ? data_operandB_inverted[i] : data_operandB[i];
+        for (i = 0; i < 32; i = i + 1) begin : invert_and_select_B
+            not not_b_inv(data_operandB_inverted[i], data_operandB[i]);
+            // Use MUX to select between data_operandB and data_operandB_inverted
+            mux2to1 mux_operandB(
+                .in0(data_operandB[i]),
+                .in1(data_operandB_inverted[i]),
+                .sel(is_subtract),
+                .out(operandB_selected[i])
+            );
         end
     endgenerate
 
-    // Initial carry-in
+    // Initial carry-in connected via gates
     wire carry_in;
-    assign carry_in = is_subtract;
+    // carry_in = is_subtract;
+    and and_carry_in(carry_in, is_subtract, 1'b1);
 
-    // Generate and propagate signals
+    // Generate G and P signals
     wire [31:0] G, P;
 
     generate
@@ -64,12 +61,14 @@ module alu(
         end
     endgenerate
 
-    // Implement CLA
+    // Implement CLA using 4-bit CLA blocks
     wire [31:0] C; // Internal carries
     wire [7:0] PG, GG; // Block propagate and generate
     wire [7:0] carry_block; // Carries into each block
 
-    assign carry_block[0] = carry_in;
+    // carry_block[0] connected via gates
+    // carry_block[0] = carry_in;
+    and and_carry_block0(carry_block[0], carry_in, 1'b1);
 
     generate
         for (i = 0; i < 8; i = i + 1) begin : cla_blocks
@@ -87,7 +86,7 @@ module alu(
             if (i < 7) begin : next_carry
                 wire temp1;
                 and and_pg_cin(temp1, PG[i], carry_block[i]);
-                or  or_carry_block(carry_block[i+1], GG[i], temp1);
+                or or_carry_block(carry_block[i+1], GG[i], temp1);
             end
         end
     endgenerate
@@ -105,19 +104,28 @@ module alu(
         end
     endgenerate
 
-    // Assign result
-    assign data_result = sum;
+    // Assign result bits individually using gates
+    generate
+        for (i = 0; i < 32; i = i + 1) begin : output_result
+            // data_result[i] = sum[i];
+            and and_data_result(data_result[i], sum[i], 1'b1);
+        end
+    endgenerate
 
     // Overflow detection
     wire carry_in_MSB, carry_out_MSB;
 
-    assign carry_in_MSB = C[30]; // Carry into bit 31
-    assign carry_out_MSB = C[31]; // Carry out from bit 31
+    // carry_in_MSB = C[30];
+    and and_carry_in_MSB(carry_in_MSB, C[30], 1'b1);
+
+    // carry_out_MSB = C[31];
+    and and_carry_out_MSB(carry_out_MSB, C[31], 1'b1);
 
     xor xor_overflow(overflow, carry_in_MSB, carry_out_MSB);
+
 endmodule
 
-// Corrected 4-bit CLA block module
+// 4-bit CLA Block Module
 module cla_block_4bit(
     input [3:0] G,
     input [3:0] P,
@@ -126,57 +134,65 @@ module cla_block_4bit(
     output PG,
     output GG
 );
-    // Internal wires for carry computation
+    
     wire p0c0, p1g0, p1p0c0;
     wire p2g1, p2p1g0, p2p1p0c0;
-    wire p3g2, p3p2g1_carry, p3p2p1g0_carry, p3p2p1p0c0;
+    wire p3g2, p3p2g1, p3p2p1g0, p3p2p1p0c0;
     wire c1_partial, c2_partial1, c2_partial2;
     wire c3_partial1, c3_partial2, c3_partial3;
 
     // c[0] = G[0] + (P[0] & Cin)
     and and_p0c0(p0c0, P[0], Cin);
-    or  or_c0(Cout[0], G[0], p0c0);
+    or or_c0(Cout[0], G[0], p0c0);
 
     // c[1] = G[1] + (P[1] & G[0]) + (P[1] & P[0] & Cin)
     and and_p1g0(p1g0, P[1], G[0]);
     and and_p1p0c0(p1p0c0, P[1], P[0], Cin);
-    or  or_c1_partial(c1_partial, G[1], p1g0);
-    or  or_c1(Cout[1], c1_partial, p1p0c0);
+    or or_c1_partial(c1_partial, G[1], p1g0);
+    or or_c1(Cout[1], c1_partial, p1p0c0);
 
     // c[2] = G[2] + (P[2] & G[1]) + (P[2] & P[1] & G[0]) + (P[2] & P[1] & P[0] & Cin)
     and and_p2g1(p2g1, P[2], G[1]);
     and and_p2p1g0(p2p1g0, P[2], P[1], G[0]);
     and and_p2p1p0c0(p2p1p0c0, P[2], P[1], P[0], Cin);
-    or  or_c2_partial1(c2_partial1, G[2], p2g1);
-    or  or_c2_partial2(c2_partial2, c2_partial1, p2p1g0);
-    or  or_c2(Cout[2], c2_partial2, p2p1p0c0);
+    or or_c2_partial1(c2_partial1, G[2], p2g1);
+    or or_c2_partial2(c2_partial2, c2_partial1, p2p1g0);
+    or or_c2(Cout[2], c2_partial2, p2p1p0c0);
 
     // c[3] = G[3] + (P[3] & G[2]) + (P[3] & P[2] & G[1]) + (P[3] & P[2] & P[1] & G[0]) +
     //        (P[3] & P[2] & P[1] & P[0] & Cin)
     and and_p3g2(p3g2, P[3], G[2]);
-    and and_p3p2g1_carry(p3p2g1_carry, P[3], P[2], G[1]);
-    and and_p3p2p1g0_carry(p3p2p1g0_carry, P[3], P[2], P[1], G[0]);
+    and and_p3p2g1(p3p2g1, P[3], P[2], G[1]);
+    and and_p3p2p1g0(p3p2p1g0, P[3], P[2], P[1], G[0]);
     and and_p3p2p1p0c0(p3p2p1p0c0, P[3], P[2], P[1], P[0], Cin);
-    or  or_c3_partial1(c3_partial1, G[3], p3g2);
-    or  or_c3_partial2(c3_partial2, c3_partial1, p3p2g1_carry);
-    or  or_c3_partial3(c3_partial3, c3_partial2, p3p2p1g0_carry);
-    or  or_c3(Cout[3], c3_partial3, p3p2p1p0c0);
+    or or_c3_partial1(c3_partial1, G[3], p3g2);
+    or or_c3_partial2(c3_partial2, c3_partial1, p3p2g1);
+    or or_c3_partial3(c3_partial3, c3_partial2, p3p2p1g0);
+    or or_c3(Cout[3], c3_partial3, p3p2p1p0c0);
 
     // Compute block propagate (PG) and generate (GG)
-    wire p_all;
-    and and_pg(p_all, P[3], P[2], P[1], P[0]);
-    assign PG = p_all;
+    and and_pg(PG, P[3], P[2], P[1], P[0]);
 
-    // Internal wires for GG computation
-    wire temp1_gg, temp2_gg, temp3_gg, temp4_gg, temp5_gg, g_all;
+    // GG = G[3] + (P[3] & G[2]) + (P[3] & P[2] & G[1]) + (P[3] & P[2] & P[1] & G[0])
+    wire gg_p3g2, gg_p3p2g1, gg_p3p2p1g0;
+    and and_gg_p3g2(gg_p3g2, P[3], G[2]);
+    and and_gg_p3p2g1(gg_p3p2g1, P[3], P[2], G[1]);
+    and and_gg_p3p2p1g0(gg_p3p2p1g0, P[3], P[2], P[1], G[0]);
+    or or_gg(GG, G[3], gg_p3g2, gg_p3p2g1, gg_p3p2p1g0);
 
-    // Compute GG
-    and and_p3p2p1p0c_gg(temp1_gg, P[3], P[2], P[1], P[0], Cin);
-    and and_p3p2p1g0_gg(temp2_gg, P[3], P[2], P[1], G[0]);
-    and and_p3p2g1_gg(temp3_gg, P[3], P[2], G[1]);
-    or  or_gg_partial1(temp4_gg, G[3], temp3_gg);
-    or  or_gg_partial2(temp5_gg, temp4_gg, temp2_gg);
-    or  or_gg_partial3(g_all, temp5_gg, temp1_gg);
-    assign GG = g_all;
+endmodule
 
+// 2:1 Multiplexer Module]
+// I can use assign with mux but whatever
+module mux2to1(
+    input in0,
+    input in1,
+    input sel,
+    output out
+);
+    wire nsel, a0, a1;
+    not not_sel(nsel, sel);
+    and and0(a0, in0, nsel);
+    and and1(a1, in1, sel);
+    or or_out(out, a0, a1);
 endmodule
