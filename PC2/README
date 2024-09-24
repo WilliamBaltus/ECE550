@@ -1,0 +1,11 @@
+William Baltus, wjb40@duke.edu, 1391317
+
+How it works:
+
+I determine if it is add or subtract based on opcode.
+If it is subtraction then data_operandB must be inverted (2's complement first half)
+A mux wll select inversion or regular data_operandB based on if we are in subtraction mode
+Carry_in is set to 1 if subtraction (finish 2's complement) otherwise carry_in is 0
+4 8-bit CLA's to make 32 bit adder. Can compute propogate and generate signals since its xor and and's. Computes sum.
+Compares carry in and out of MSB to see if overflow.
+DONE
