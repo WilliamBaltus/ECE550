@@ -1,11 +1,17 @@
 William Baltus, wjb40@duke.edu, 1391317
 
-How it works:
+Modules involved:
+1. alu (obviously)
+It determines the operation based on the opcode, selects the appropriate inputs, and computes the result. 
 
-I determine if it is add or subtract based on opcode.
-If it is subtraction then data_operandB must be inverted (2's complement first half)
-A mux wll select inversion or regular data_operandB based on if we are in subtraction mode
-Carry_in is set to 1 if subtraction (finish 2's complement) otherwise carry_in is 0
-4 8-bit CLA's to make 32 bit adder. Can compute propogate and generate signals since its xor and and's. Computes sum.
-Compares carry in and out of MSB to see if overflow.
-DONE
+2. 4-bit CLA
+Computes carry-out signals and block propagate and generate signals, stack a few of these to make 32-bit.
+
+3. mux2to1
+basic multiplexer that selects between two inputs based on a select signal. It is used to select between the normal and inverted data_operandB during subtraction.
+
+SLL
+Performs logical left shifts on a 32-bit input based on the shift amount
+
+SRA
+Performs arithmetic right shifts on a 32-bit input while preserving the sign bit
