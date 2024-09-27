@@ -1,0 +1,1 @@
+alu but easy mode
