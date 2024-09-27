@@ -13,10 +13,10 @@ module alu(
     input [4:0] ctrl_ALUopcode, ctrl_shiftamt;
     output [31:0] data_result;
     output isNotEqual, isLessThan, overflow;
-    
-    // Control signals
+
+    // Declare wires for control signals
     wire is_add, is_subtract, is_and_op, is_or_op, is_sll, is_sra, is_add_or_subtract;
-    
+
     // Invert ctrl_ALUopcode bits
     wire n_ctrl_ALUopcode_4, n_ctrl_ALUopcode_3, n_ctrl_ALUopcode_2, n_ctrl_ALUopcode_1, n_ctrl_ALUopcode_0;
     not not4(n_ctrl_ALUopcode_4, ctrl_ALUopcode[4]);
@@ -24,7 +24,7 @@ module alu(
     not not2(n_ctrl_ALUopcode_2, ctrl_ALUopcode[2]);
     not not1(n_ctrl_ALUopcode_1, ctrl_ALUopcode[1]);
     not not0(n_ctrl_ALUopcode_0, ctrl_ALUopcode[0]);
-    
+
     // Generate control signals
     // is_add = 00000
     and is_add_gate(is_add, n_ctrl_ALUopcode_4, n_ctrl_ALUopcode_3, n_ctrl_ALUopcode_2, n_ctrl_ALUopcode_1, n_ctrl_ALUopcode_0);
@@ -40,7 +40,9 @@ module alu(
     and is_sra_gate(is_sra, n_ctrl_ALUopcode_4, n_ctrl_ALUopcode_3, ctrl_ALUopcode[2], n_ctrl_ALUopcode_1, ctrl_ALUopcode[0]);
     // is_add_or_subtract
     or is_add_or_subtract_gate(is_add_or_subtract, is_add, is_subtract);
-    
+
+    // ADD/SUBTRACT operations
+
     // Invert data_operandB if subtracting
     wire [31:0] data_operandB_inverted;
     wire [31:0] operandB_selected;
@@ -86,6 +88,7 @@ module alu(
     // carry_block[0] = carry_in;
     and and_carry_block0(carry_block[0], carry_in, 1'b1);
 
+    // Generate CLA blocks
     generate
         for (i = 0; i < 8; i = i + 1) begin : cla_blocks
             // Instantiate 4-bit CLA block
@@ -97,13 +100,15 @@ module alu(
                 .PG(PG[i]),
                 .GG(GG[i])
             );
+        end
+    endgenerate
 
-            // Compute carry into next block
-            if (i < 7) begin : next_carry
-                wire temp1;
-                and and_pg_cin(temp1, PG[i], carry_block[i]);
-                or or_carry_block(carry_block[i+1], GG[i], temp1);
-            end
+    // Compute carry into next block for i = 0 to 6
+    generate
+        for (i = 0; i < 7; i = i + 1) begin : compute_carry
+            wire temp1;
+            and and_pg_cin(temp1, PG[i], carry_block[i]);
+            or or_carry_block(carry_block[i+1], GG[i], temp1);
         end
     endgenerate
 
@@ -136,191 +141,20 @@ module alu(
         end
     endgenerate
 
-    // Implement SLL (Shift Left Logical)
-    wire [31:0] sll_stage0, sll_stage1, sll_stage2, sll_stage3, sll_stage4;
+    // Instantiate SLL and SRA modules
+    wire [31:0] sll_result, sra_result;
 
-    // Stage 0: Shift by 16 bits
-    generate
-        for (i = 0; i < 32; i = i + 1) begin : sll_shift16
-            wire shift_in;
-            if (i < 16) begin
-                assign shift_in = 1'b0;
-            end else begin
-                assign shift_in = data_operandA[i - 16];
-            end
-            mux2to1 mux_sll_stage0(
-                .in0(data_operandA[i]),
-                .in1(shift_in),
-                .sel(ctrl_shiftamt[4]),
-                .out(sll_stage0[i])
-            );
-        end
-    endgenerate
+    SLL sll_inst(
+        .a(data_operandA),
+        .ctrl_shiftamt(ctrl_shiftamt),
+        .out(sll_result)
+    );
 
-    // Stage 1: Shift by 8 bits
-    generate
-        for (i = 0; i < 32; i = i + 1) begin : sll_shift8
-            wire shift_in;
-            if (i < 8) begin
-                assign shift_in = 1'b0;
-            end else begin
-                assign shift_in = sll_stage0[i - 8];
-            end
-            mux2to1 mux_sll_stage1(
-                .in0(sll_stage0[i]),
-                .in1(shift_in),
-                .sel(ctrl_shiftamt[3]),
-                .out(sll_stage1[i])
-            );
-        end
-    endgenerate
-
-    // Stage 2: Shift by 4 bits
-    generate
-        for (i = 0; i < 32; i = i + 1) begin : sll_shift4
-            wire shift_in;
-            if (i < 4) begin
-                assign shift_in = 1'b0;
-            end else begin
-                assign shift_in = sll_stage1[i - 4];
-            end
-            mux2to1 mux_sll_stage2(
-                .in0(sll_stage1[i]),
-                .in1(shift_in),
-                .sel(ctrl_shiftamt[2]),
-                .out(sll_stage2[i])
-            );
-        end
-    endgenerate
-
-    // Stage 3: Shift by 2 bits
-    generate
-        for (i = 0; i < 32; i = i + 1) begin : sll_shift2
-            wire shift_in;
-            if (i < 2) begin
-                assign shift_in = 1'b0;
-            end else begin
-                assign shift_in = sll_stage2[i - 2];
-            end
-            mux2to1 mux_sll_stage3(
-                .in0(sll_stage2[i]),
-                .in1(shift_in),
-                .sel(ctrl_shiftamt[1]),
-                .out(sll_stage3[i])
-            );
-        end
-    endgenerate
-
-    // Stage 4: Shift by 1 bit
-    generate
-        for (i = 0; i < 32; i = i + 1) begin : sll_shift1
-            wire shift_in;
-            if (i < 1) begin
-                assign shift_in = 1'b0;
-            end else begin
-                assign shift_in = sll_stage3[i - 1];
-            end
-            mux2to1 mux_sll_stage4(
-                .in0(sll_stage3[i]),
-                .in1(shift_in),
-                .sel(ctrl_shiftamt[0]),
-                .out(sll_stage4[i])
-            );
-        end
-    endgenerate
-
-    // Implement SRA (Shift Right Arithmetic)
-    wire [31:0] sra_stage0, sra_stage1, sra_stage2, sra_stage3, sra_stage4;
-
-    // Stage 0: Shift by 16 bits
-    generate
-        for (i = 31; i >= 0; i = i - 1) begin : sra_shift16
-            wire shift_in;
-            if (i + 16 > 31) begin
-                assign shift_in = data_operandA[31]; // Sign extend
-            end else begin
-                assign shift_in = data_operandA[i + 16];
-            end
-            mux2to1 mux_sra_stage0(
-                .in0(data_operandA[i]),
-                .in1(shift_in),
-                .sel(ctrl_shiftamt[4]),
-                .out(sra_stage0[i])
-            );
-        end
-    endgenerate
-
-    // Stage 1: Shift by 8 bits
-    generate
-        for (i = 31; i >= 0; i = i - 1) begin : sra_shift8
-            wire shift_in;
-            if (i + 8 > 31) begin
-                assign shift_in = data_operandA[31];
-            end else begin
-                assign shift_in = sra_stage0[i + 8];
-            end
-            mux2to1 mux_sra_stage1(
-                .in0(sra_stage0[i]),
-                .in1(shift_in),
-                .sel(ctrl_shiftamt[3]),
-                .out(sra_stage1[i])
-            );
-        end
-    endgenerate
-
-    // Stage 2: Shift by 4 bits
-    generate
-        for (i = 31; i >= 0; i = i - 1) begin : sra_shift4
-            wire shift_in;
-            if (i + 4 > 31) begin
-                assign shift_in = data_operandA[31];
-            end else begin
-                assign shift_in = sra_stage1[i + 4];
-            end
-            mux2to1 mux_sra_stage2(
-                .in0(sra_stage1[i]),
-                .in1(shift_in),
-                .sel(ctrl_shiftamt[2]),
-                .out(sra_stage2[i])
-            );
-        end
-    endgenerate
-
-    // Stage 3: Shift by 2 bits
-    generate
-        for (i = 31; i >= 0; i = i - 1) begin : sra_shift2
-            wire shift_in;
-            if (i + 2 > 31) begin
-                assign shift_in = data_operandA[31];
-            end else begin
-                assign shift_in = sra_stage2[i + 2];
-            end
-            mux2to1 mux_sra_stage3(
-                .in0(sra_stage2[i]),
-                .in1(shift_in),
-                .sel(ctrl_shiftamt[1]),
-                .out(sra_stage3[i])
-            );
-        end
-    endgenerate
-
-    // Stage 4: Shift by 1 bit
-    generate
-        for (i = 31; i >= 0; i = i - 1) begin : sra_shift1
-            wire shift_in;
-            if (i + 1 > 31) begin
-                assign shift_in = data_operandA[31];
-            end else begin
-                assign shift_in = sra_stage3[i + 1];
-            end
-            mux2to1 mux_sra_stage4(
-                .in0(sra_stage3[i]),
-                .in1(shift_in),
-                .sel(ctrl_shiftamt[0]),
-                .out(sra_stage4[i])
-            );
-        end
-    endgenerate
+    SRA sra_inst(
+        .a(data_operandA),
+        .ctrl_shiftamt(ctrl_shiftamt),
+        .out(sra_result)
+    );
 
     // Select data_result
     generate
@@ -329,8 +163,8 @@ module alu(
             and and_sum_result(sum_result_bit, sum[i], is_add_or_subtract);
             and and_and_result(and_result_bit, and_result[i], is_and_op);
             and and_or_result(or_result_bit, or_result[i], is_or_op);
-            and and_sll_result(sll_result_bit, sll_stage4[i], is_sll);
-            and and_sra_result(sra_result_bit, sra_stage4[i], is_sra);
+            and and_sll_result(sll_result_bit, sll_result[i], is_sll);
+            and and_sra_result(sra_result_bit, sra_result[i], is_sra);
             or or_data_result(data_result[i], sum_result_bit, and_result_bit, or_result_bit, sll_result_bit, sra_result_bit);
         end
     endgenerate
@@ -340,7 +174,7 @@ module alu(
     wire is_subtract_only;
     and and_is_subtract_only(is_subtract_only, is_subtract, 1'b1);
 
-    // Compute if sum is zero
+    // Compute sum_not_zero
     wire sum_not_zero;
     wire [31:0] sum_inverted;
     generate
@@ -384,64 +218,72 @@ module alu(
 
 endmodule
 
+
 // 4-bit CLA Block Module
 module cla_block_4bit(
-    input [3:0] G,
-    input [3:0] P,
-    input Cin,
-    output [3:0] Cout,
-    output PG,
-    output GG
+    input [3:0] G,     // Generate signals for each bit
+    input [3:0] P,     // Propagate signals for each bit
+    input Cin,         // Carry-in for the block
+    output [3:0] Cout, // Carry-out signals for each bit
+    output PG,         // Block propagate
+    output GG          // Block generate
 );
 
-    wire p0c0, p1g0, p1p0c0;
-    wire p2g1, p2p1g0, p2p1p0c0;
-    wire p3g2, p3p2g1, p3p2p1g0, p3p2p1p0c0;
-    wire c1_partial, c2_partial1, c2_partial2;
-    wire c3_partial1, c3_partial2, c3_partial3;
+    // Internal wires for carry computation
+    wire c1_intermediate;
+    wire c2_intermediate1, c2_intermediate2;
+    wire c3_intermediate1, c3_intermediate2, c3_intermediate3;
 
-    // c[0] = G[0] + (P[0] & Cin)
+    // Compute carries using carry-lookahead logic
+    // Cout[0] = G[0] + (P[0] & Cin)
+    wire p0c0;
     and and_p0c0(p0c0, P[0], Cin);
-    or or_c0(Cout[0], G[0], p0c0);
+    or or_cout0(Cout[0], G[0], p0c0);
 
-    // c[1] = G[1] + (P[1] & G[0]) + (P[1] & P[0] & Cin)
+    // Cout[1] = G[1] + (P[1] & G[0]) + (P[1] & P[0] & Cin)
+    wire p1g0, p1p0c0;
     and and_p1g0(p1g0, P[1], G[0]);
     and and_p1p0c0(p1p0c0, P[1], P[0], Cin);
-    or or_c1_partial(c1_partial, G[1], p1g0);
-    or or_c1(Cout[1], c1_partial, p1p0c0);
+    or or_c1_intermediate(c1_intermediate, G[1], p1g0);
+    or or_cout1(Cout[1], c1_intermediate, p1p0c0);
 
-    // c[2] = G[2] + (P[2] & G[1]) + (P[2] & P[1] & G[0]) + (P[2] & P[1] & P[0] & Cin)
+    // Cout[2] = G[2] + (P[2] & G[1]) + (P[2] & P[1] & G[0]) + (P[2] & P[1] & P[0] & Cin)
+    wire p2g1, p2p1g0, p2p1p0c0;
     and and_p2g1(p2g1, P[2], G[1]);
     and and_p2p1g0(p2p1g0, P[2], P[1], G[0]);
     and and_p2p1p0c0(p2p1p0c0, P[2], P[1], P[0], Cin);
-    or or_c2_partial1(c2_partial1, G[2], p2g1);
-    or or_c2_partial2(c2_partial2, c2_partial1, p2p1g0);
-    or or_c2(Cout[2], c2_partial2, p2p1p0c0);
+    or or_c2_intermediate1(c2_intermediate1, G[2], p2g1);
+    or or_c2_intermediate2(c2_intermediate2, c2_intermediate1, p2p1g0);
+    or or_cout2(Cout[2], c2_intermediate2, p2p1p0c0);
 
-    // c[3] = G[3] + (P[3] & G[2]) + (P[3] & P[2] & G[1]) + (P[3] & P[2] & P[1] & G[0]) +
-    //        (P[3] & P[2] & P[1] & P[0] & Cin)
+    // Cout[3] = G[3] + (P[3] & G[2]) + (P[3] & P[2] & G[1]) +
+    //           (P[3] & P[2] & P[1] & G[0]) + (P[3] & P[2] & P[1] & P[0] & Cin)
+    wire p3g2, p3p2g1, p3p2p1g0, p3p2p1p0c0;
     and and_p3g2(p3g2, P[3], G[2]);
     and and_p3p2g1(p3p2g1, P[3], P[2], G[1]);
     and and_p3p2p1g0(p3p2p1g0, P[3], P[2], P[1], G[0]);
     and and_p3p2p1p0c0(p3p2p1p0c0, P[3], P[2], P[1], P[0], Cin);
-    or or_c3_partial1(c3_partial1, G[3], p3g2);
-    or or_c3_partial2(c3_partial2, c3_partial1, p3p2g1);
-    or or_c3_partial3(c3_partial3, c3_partial2, p3p2p1g0);
-    or or_c3(Cout[3], c3_partial3, p3p2p1p0c0);
+    or or_c3_intermediate1(c3_intermediate1, G[3], p3g2);
+    or or_c3_intermediate2(c3_intermediate2, c3_intermediate1, p3p2g1);
+    or or_c3_intermediate3(c3_intermediate3, c3_intermediate2, p3p2p1g0);
+    or or_cout3(Cout[3], c3_intermediate3, p3p2p1p0c0);
 
-    // Compute block propagate (PG) and generate (GG)
+    // Compute block propagate (PG) and block generate (GG)
+    // PG = P[3] & P[2] & P[1] & P[0]
     and and_pg(PG, P[3], P[2], P[1], P[0]);
 
-    // GG = G[3] + (P[3] & G[2]) + (P[3] & P[2] & G[1]) + (P[3] & P[2] & P[1] & G[0])
-    wire gg_p3g2, gg_p3p2g1, gg_p3p2p1g0;
-    and and_gg_p3g2(gg_p3g2, P[3], G[2]);
-    and and_gg_p3p2g1(gg_p3p2g1, P[3], P[2], G[1]);
-    and and_gg_p3p2p1g0(gg_p3p2p1g0, P[3], P[2], P[1], G[0]);
-    or or_gg(GG, G[3], gg_p3g2, gg_p3p2g1, gg_p3p2p1g0);
+    // GG = G[3] + (P[3] & G[2]) + (P[3] & P[2] & G[1]) +
+    //      (P[3] & P[2] & P[1] & G[0])
+    wire p3g2_for_gg, p3p2g1_for_gg, p3p2p1g0_for_gg;
+    and and_p3g2_for_gg(p3g2_for_gg, P[3], G[2]);
+    and and_p3p2g1_for_gg(p3p2g1_for_gg, P[3], P[2], G[1]);
+    and and_p3p2p1g0_for_gg(p3p2p1g0_for_gg, P[3], P[2], P[1], G[0]);
+    or or_gg_intermediate(GG, G[3], p3g2_for_gg, p3p2g1_for_gg, p3p2p1g0_for_gg);
 
 endmodule
 
-// 2:1 Multiplexer Module
+
+// 2:1 Multiplexer Module (Same as before)
 module mux2to1(
     input in0,
     input in1,
@@ -453,4 +295,83 @@ module mux2to1(
     and and0(a0, in0, nsel);
     and and1(a1, in1, sel);
     or or_out(out, a0, a1);
+endmodule
+
+// SLL Module
+module SLL(a, ctrl_shiftamt, out);
+    // Logical Left Shift
+    input [31:0] a;
+    input [4:0] ctrl_shiftamt;
+    output [31:0] out;
+
+    wire [31:0] stage0, stage1, stage2, stage3;
+
+    // Stage 0: shift by 1 bit
+    assign stage0[0] = ctrl_shiftamt[0] ? 1'b0 : a[0];
+    assign stage0[31:1] = ctrl_shiftamt[0] ? a[30:0] : a[31:1];
+
+    // Stage 1: shift by 2 bits
+    assign stage1[1:0] = ctrl_shiftamt[1] ? 2'b00 : stage0[1:0];
+    assign stage1[31:2] = ctrl_shiftamt[1] ? stage0[29:0] : stage0[31:2];
+
+    // Stage 2: shift by 4 bits
+    assign stage2[3:0] = ctrl_shiftamt[2] ? 4'b0000 : stage1[3:0];
+    assign stage2[31:4] = ctrl_shiftamt[2] ? stage1[27:0] : stage1[31:4];
+
+    // Stage 3: shift by 8 bits
+    assign stage3[7:0] = ctrl_shiftamt[3] ? 8'b00000000 : stage2[7:0];
+    assign stage3[31:8] = ctrl_shiftamt[3] ? stage2[23:0] : stage2[31:8];
+
+    // Stage 4: shift by 16 bits
+    assign out[15:0] = ctrl_shiftamt[4] ? 16'b0000000000000000 : stage3[15:0];
+    assign out[31:16] = ctrl_shiftamt[4] ? stage3[15:0] : stage3[31:16];
+
+endmodule
+
+// SRA Module
+module SRA(a, ctrl_shiftamt, out);
+    // Arithmetic Right Shift
+    input [31:0] a;
+    input [4:0] ctrl_shiftamt;
+    output [31:0] out;
+
+    wire [31:0] stage0, stage1, stage2, stage3;
+
+    // Stage 0: shift by 1 bit
+    assign stage0[31] = a[31];
+    assign stage0[30:0] = ctrl_shiftamt[0] ? a[31:1] : a[30:0];
+
+    // Stage 1: shift by 2 bits
+    generate
+        genvar i;
+        for (i = 31; i > 29; i = i - 1) begin : sra_stage1_gen
+            assign stage1[i] = ctrl_shiftamt[1] ? stage0[31] : stage0[i];
+        end
+    endgenerate
+    assign stage1[29:0] = ctrl_shiftamt[1] ? stage0[31:2] : stage0[29:0];
+
+    // Stage 2: shift by 4 bits
+    generate
+        for (i = 31; i > 27; i = i - 1) begin : sra_stage2_gen
+            assign stage2[i] = ctrl_shiftamt[2] ? stage1[31] : stage1[i];
+        end
+    endgenerate
+    assign stage2[27:0] = ctrl_shiftamt[2] ? stage1[31:4] : stage1[27:0];
+
+    // Stage 3: shift by 8 bits
+    generate
+        for (i = 31; i > 23; i = i - 1) begin : sra_stage3_gen
+            assign stage3[i] = ctrl_shiftamt[3] ? stage2[31] : stage2[i];
+        end
+    endgenerate
+    assign stage3[23:0] = ctrl_shiftamt[3] ? stage2[31:8] : stage2[23:0];
+
+    // Stage 4: shift by 16 bits
+    generate
+        for (i = 31; i > 15; i = i - 1) begin : sra_stage4_gen
+            assign out[i] = ctrl_shiftamt[4] ? stage3[31] : stage3[i];
+        end
+    endgenerate
+    assign out[15:0] = ctrl_shiftamt[4] ? stage3[31:16] : stage3[15:0];
+
 endmodule
