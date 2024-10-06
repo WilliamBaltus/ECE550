@@ -86,12 +86,12 @@ module regfile_tb();
 
             @(negedge clock); // wait for next negedge, read should be done
 
-            if(data_readRegA !== exp) begin
+            if(data_readRegA !== ((checkReg == 5'b0) ? 32'b0 : exp)) begin
                 $display("**Error on port A: read %h but expected %h.", data_readRegA, exp);
                 errors = errors + 1;
             end
 
-            if(data_readRegB !== exp) begin
+            if(data_readRegB !== ((checkReg == 5'b0) ? 32'b0 : exp)) begin
                 $display("**Error on port B: read %h but expected %h.", data_readRegB, exp);
                 errors = errors + 1;
             end
