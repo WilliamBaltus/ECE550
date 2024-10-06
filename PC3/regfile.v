@@ -1,22 +1,3 @@
-//module regfile (
-//    clock,
-//    ctrl_writeEnable,
-//    ctrl_reset, ctrl_writeReg,
-//    ctrl_readRegA, ctrl_readRegB, data_writeReg,
-//    data_readRegA, data_readRegB
-//);
-//
-//   input clock, ctrl_writeEnable, ctrl_reset;
-//   input [4:0] ctrl_writeReg, ctrl_readRegA, ctrl_readRegB;
-//   input [31:0] data_writeReg;
-//
-//   output [31:0] data_readRegA, data_readRegB;
-//
-//   /* YOUR CODE HERE */
-//
-//endmodule
-
-
 module regfile (
     clock,
     ctrl_writeEnable,
@@ -31,7 +12,8 @@ module regfile (
    output [31:0] data_readRegA, data_readRegB;
 
    // Wires for register outputs
-   wire [31:0] reg_out[31:0]; // reg_out[0] to reg_out[31]
+   wire [31:0] reg_out0;           // Output of register 0
+   wire [31:0] reg_out[31:1];      // Outputs of registers 1 to 31
 
    // Wires for write enables
    wire [31:0] write_enable;
@@ -42,92 +24,125 @@ module regfile (
 
    // Create a wire that is always zero
    wire zero;
-   wire ctrl_writeEnable_neg;
-   not not_ctrl_writeEnable(ctrl_writeEnable_neg, ctrl_writeEnable);
-   and and_zero(zero, ctrl_writeEnable, ctrl_writeEnable_neg);
+   wire dummy_signal;
+   not not_dummy(dummy_signal, dummy_signal); // dummy_signal toggles
+   and and_zero(zero, dummy_signal, dummy_signal); // zero is always 0
 
    // Write enable for register 0 is always 0
    // Using an AND gate to ensure write_enable[0] is always zero
    and and_write_enable0(write_enable[0], zero, zero);
 
    // Generate write enables for registers 1 to 31
-   genvar i;
+   genvar i_we;
    generate
-       for (i = 1; i < 32; i = i + 1) begin : gen_write_enable
+       for (i_we = 1; i_we < 32; i_we = i_we + 1) begin : gen_write_enable
            wire eq_write;
-           comparator5bit #(.CONST_VAL(i)) comp_write(
+           comparator5bit #(.CONST_VAL(i_we)) comp_write(
                .in(ctrl_writeReg),
                .eq(eq_write)
            );
            // Use AND gate to generate write enable
-           and and_write_enable(write_enable[i], ctrl_writeEnable, eq_write);
+           and and_write_enable(write_enable[i_we], ctrl_writeEnable, eq_write);
        end
    endgenerate
 
-   // Instantiate registers
+   // Instantiate register 0 separately
+   zero_register reg_zero(
+       .data_out(reg_out0),
+       .clk(clock),
+       .clr(ctrl_reset)
+   );
+
+   // Instantiate registers 1 to 31
+   genvar i_reg;
    generate
-       for (i = 0; i < 32; i = i + 1) begin : gen_registers
+       for (i_reg = 1; i_reg < 32; i_reg = i_reg + 1) begin : gen_registers
            register32 reg_inst(
                .data_in(data_writeReg),
-               .data_out(reg_out[i]),
+               .data_out(reg_out[i_reg]),
                .clk(clock),
-               .en(write_enable[i]),
+               .en(write_enable[i_reg]),
                .clr(ctrl_reset)
            );
        end
    endgenerate
 
    // Generate one-hot select lines for read port A
+   genvar i_selA;
    generate
-       for (i = 0; i < 32; i = i + 1) begin : gen_sel_onehotA
-           comparator5bit #(.CONST_VAL(i)) comp_selA(
+       for (i_selA = 0; i_selA < 32; i_selA = i_selA + 1) begin : gen_sel_onehotA
+           comparator5bit #(.CONST_VAL(i_selA)) comp_selA(
                .in(ctrl_readRegA),
-               .eq(sel_onehotA[i])
+               .eq(sel_onehotA[i_selA])
            );
        end
    endgenerate
 
    // Generate one-hot select lines for read port B
+   genvar i_selB;
    generate
-       for (i = 0; i < 32; i = i + 1) begin : gen_sel_onehotB
-           comparator5bit #(.CONST_VAL(i)) comp_selB(
+       for (i_selB = 0; i_selB < 32; i_selB = i_selB + 1) begin : gen_sel_onehotB
+           comparator5bit #(.CONST_VAL(i_selB)) comp_selB(
                .in(ctrl_readRegB),
-               .eq(sel_onehotB[i])
+               .eq(sel_onehotB[i_selB])
            );
        end
    endgenerate
 
    // Build data_readRegA using multiplexers
-   genvar bit_idx, reg_idx;
+   genvar bit_idxA, reg_idxA;
    generate
-       for (bit_idx = 0; bit_idx < 32; bit_idx = bit_idx + 1) begin : gen_bitsA
+       for (bit_idxA = 0; bit_idxA < 32; bit_idxA = bit_idxA + 1) begin : gen_bitsA
            wire [31:0] and_outA;
-           for (reg_idx = 0; reg_idx < 32; reg_idx = reg_idx + 1) begin : gen_regsA
-               and and_gateA(and_outA[reg_idx], reg_out[reg_idx][bit_idx], sel_onehotA[reg_idx]);
+           // For register 0
+           and and_gateA0(and_outA[0], reg_out0[bit_idxA], sel_onehotA[0]);
+           // For registers 1 to 31
+           for (reg_idxA = 1; reg_idxA < 32; reg_idxA = reg_idxA + 1) begin : gen_regsA
+               and and_gateA(and_outA[reg_idxA], reg_out[reg_idxA][bit_idxA], sel_onehotA[reg_idxA]);
            end
            // OR the outputs
            or32 or_gateA(
                .in(and_outA),
-               .out(data_readRegA[bit_idx])
+               .out(data_readRegA[bit_idxA])
            );
        end
    endgenerate
 
    // Build data_readRegB using multiplexers
+   genvar bit_idxB, reg_idxB;
    generate
-       for (bit_idx = 0; bit_idx < 32; bit_idx = bit_idx + 1) begin : gen_bitsB
+       for (bit_idxB = 0; bit_idxB < 32; bit_idxB = bit_idxB + 1) begin : gen_bitsB
            wire [31:0] and_outB;
-           for (reg_idx = 0; reg_idx < 32; reg_idx = reg_idx + 1) begin : gen_regsB
-               and and_gateB(and_outB[reg_idx], reg_out[reg_idx][bit_idx], sel_onehotB[reg_idx]);
+           // For register 0
+           and and_gateB0(and_outB[0], reg_out0[bit_idxB], sel_onehotB[0]);
+           // For registers 1 to 31
+           for (reg_idxB = 1; reg_idxB < 32; reg_idxB = reg_idxB + 1) begin : gen_regsB
+               and and_gateB(and_outB[reg_idxB], reg_out[reg_idxB][bit_idxB], sel_onehotB[reg_idxB]);
            end
            // OR the outputs
            or32 or_gateB(
                .in(and_outB),
-               .out(data_readRegB[bit_idx])
+               .out(data_readRegB[bit_idxB])
            );
        end
    endgenerate
 
+endmodule
+
+// Zero register module
+module zero_register(data_out, clk, clr);
+    input clk, clr;
+    output [31:0] data_out;
+
+    // Data_out is always zero
+    genvar i;
+    generate
+        for (i = 0; i < 32; i = i + 1) begin : gen_zero_bits
+            wire zero_bit;
+            and and_zero_bit(zero_bit, 1'b0, 1'b0); // zero_bit is 0
+            buf buf_zero(data_out[i], zero_bit);
+        end
+    endgenerate
 endmodule
 
 // Module for 32-bit register using DFFEs
@@ -178,7 +193,6 @@ module or32(in, out);
     wire [7:0] or_stage2;
     wire [3:0] or_stage3;
     wire [1:0] or_stage4;
-    wire or_stage5;
 
     // Stage 1
     or or0(or_stage1[0], in[0], in[1]);
@@ -219,7 +233,5 @@ module or32(in, out);
     or or29(or_stage4[1], or_stage3[2], or_stage3[3]);
 
     // Stage 5
-    or or30(out, or_stage4[0], or_stage4[1]); // Output is connected directly
-
+    or or30(out, or_stage4[0], or_stage4[1]);
 endmodule
-
