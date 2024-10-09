@@ -1,4 +1,7 @@
 wjb40 1031917
+
+
+
 regfile
 Implements a 32-register file with two read ports and one write port. It handles read and write operations, ensuring register 0 is always zero and managing write enables based on control signals.
 
