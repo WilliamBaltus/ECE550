@@ -94,53 +94,27 @@ module processor(
 	 //control wires
 	 wire Rwe, Rdst, ALUinB, DMwe, Rwd;
 	 wire[4:0] ALUop;
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
+	 // PC-related wires
+    wire [31:0] pc_current, pc_next; 
+	 assign current_pc = 32'b00000000000000000000000000000000;
+	 assign output_pc = 32'b00000000000000000000000000000000;
 	 
 	 
 	 // Program Counter (PC)
-    reg [11:0] PC;                 // 12-bit PC to match imem address width
-    assign address_imem = PC;      // Connect PC to imem address
-
-    // Increment PC on each clock edge after reset
-    always @(posedge clock or posedge reset) begin
-        if (reset) begin
-            PC <= 12'b0;           // Reset PC to 0
-        end else begin
-            PC <= PC + 4;          // Increment PC by 1 each cycle
-        end
-    end
-
-    // Placeholder outputs for other modules
-    assign address_dmem = 12'b0;   // Not using dmem in this basic setup
-    assign data = 32'b0;
-    assign wren = 1'b0;
-    assign ctrl_writeEnable = 1'b0;
-    assign ctrl_writeReg = 5'b0;
-    assign ctrl_readRegA = 5'b0;
-    assign ctrl_readRegB = 5'b0;
-    assign data_writeReg = 32'b0;
-
+	 pc program_counter(.clock(clock), 
+							  .reset(reset),
+							  .current_pc(current_pc),
+							  .output_pc(output_pc));
+							  
+	 //Control Circuit (CC)
+	 control control_circuit(.instruction(q_imem), 
+									 .Rwe(Rwe), 
+									 .Rdst(Rdst), 
+									 .ALUinB(ALUinB), 
+									 .DMwe(DMwe), 
+									 .Rwd(Rwd), 
+									 .ALUop(ALUop));
+	 
+	 
+    
 endmodule
