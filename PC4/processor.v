@@ -91,6 +91,34 @@ module processor(
     input [31:0] data_readRegA, data_readRegB;
 
     /* YOUR CODE STARTS HERE */
+	 //control wires
+	 wire Rwe, Rdst, ALUinB, DMwe, Rwd;
+	 wire[4:0] ALUop;
+	 
+	 
+	 
+	 
+	 
+	 
+	 
+	 
+	 
+	 
+	 
+	 
+	 
+	 
+	 
+	 
+	 
+	 
+	 
+	 
+	 
+	 
+	 
+	 
+	 
 	 
 	 // Program Counter (PC)
     reg [11:0] PC;                 // 12-bit PC to match imem address width
