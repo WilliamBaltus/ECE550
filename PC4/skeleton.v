@@ -18,7 +18,14 @@ module skeleton(clock, reset, imem_clock, dmem_clock, processor_clock, regfile_c
         (these may be inverted, divided, or unchanged from the original clock input). Your grade will be 
         based on proper functioning with this clock.
     */
-    output imem_clock, dmem_clock, processor_clock, regfile_clock;
+    output imem_clock, dmem_clock, processor_clock, regfile_clock;	 
+	 /** CLOCK **/
+	 wire regfile_clock, imem_clock, dmem_clock, processor_clock;
+	 
+	 freq_div_by4 myclk1(.clk(clock), .reset(reset), .clk_out(processor_clock)); //processor_clock
+	 freq_div_by2 myclk2(.clk(clock), .reset(reset), .clk_out(dmem_clock)); //dmem_clock
+	 assign imem_clock = clock; 					//imem_clock
+	 assign regfile_clock = processor_clock;  //regfile_clock
 
     /** IMEM **/
     // Figure out how to generate a Quartus syncram component and commit the generated verilog file.
