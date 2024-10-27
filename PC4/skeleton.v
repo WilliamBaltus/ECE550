@@ -19,6 +19,7 @@ module skeleton(clock, reset, imem_clock, dmem_clock, processor_clock, regfile_c
         based on proper functioning with this clock.
     */
     output imem_clock, dmem_clock, processor_clock, regfile_clock;	 
+	 
 	 /** CLOCK **/
 	 wire regfile_clock, imem_clock, dmem_clock, processor_clock;
 	 
@@ -74,7 +75,7 @@ module skeleton(clock, reset, imem_clock, dmem_clock, processor_clock, regfile_c
     /** PROCESSOR **/
     processor my_processor(
         // Control signals
-        processor_clock,                          // I: The master clock
+        processor_clock,                // I: The master clock
         reset,                          // I: A reset signal
 
         // Imem

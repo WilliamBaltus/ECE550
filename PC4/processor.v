@@ -96,6 +96,8 @@ module processor(
 	 wire[4:0] ALUop;
 	 // PC-related wires
     wire [31:0] pc_current, pc_next; 
+	 wire [31:0] increment_value = 32'd4; // Constant 4 for PC increment
+    wire isNotEqual, isLessThan, overflow; // ALU flags
 	 assign current_pc = 32'b00000000000000000000000000000000;
 	 assign output_pc = 32'b00000000000000000000000000000000;
 	 
@@ -106,6 +108,19 @@ module processor(
 							  .current_pc(current_pc),
 							  .output_pc(output_pc));
 							  
+							  
+	 // PC increment
+    alu pc_increment_alu(
+        .data_operandA(pc_current),      // Current PC
+        .data_operandB(increment_value), // Increment by 4
+        .ctrl_ALUopcode(5'b00000),       // Opcode for addition
+        .ctrl_shiftamt(5'b00000),        // No shift required
+        .data_result(pc_next),           // Result assigned to pc_next
+        .isNotEqual(isNotEqual),
+        .isLessThan(isLessThan),
+        .overflow(overflow)
+    );
+	 
 	 //Control Circuit (CC)
 	 control control_circuit(.instruction(q_imem), 
 									 .Rwe(Rwe), 
