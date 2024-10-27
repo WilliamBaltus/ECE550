@@ -134,15 +134,19 @@ module processor(
 									 .Rwd(Rwd), 
 									 .ALUop(ALUop));
 	 
-	 //add operation
+	 //ALU operation
 	 assign ctrl_writeReg = Rwe; //write enable
 	 assign rd = instruction[26:22]; //destination register
 	 assign rs = instruction[21:17]; // source register
 	 assign rt = instruction[16:12]; // target ("second source") register
-	 assign shamt = instruction[11:7]; //shift amount
+	 assign shamt = isAddi ? 5'b0 : instruction[11:7]; //shift amount
 	 assign ctrl_readRegA = rt; 
 	 assign ctrl_readRegB = rs;
 	 assign ctrl_writeReg = rd;
+	 
+	 assign isAdd = (~ALUop[4])&(~ALUop[3])&(~ALUop[2])&(~ALUop[1])&(~ALUop[0]); //00000
+	 assign isSub = (~ALUop[4])&(~ALUop[3])&(~ALUop[2])&(~ALUop[1])&(ALUop[0]); //00001
+	 assign isAddi = (~opcode[4])&(~opcode[3])&(opcode[2])&(~opcode[1])&(opcode[0]); //00101
 	 
 	 //Execute ALU
 	 alu alu_operation(
@@ -156,9 +160,6 @@ module processor(
         .overflow(overflow)
     );
 	 
-	 assign isAdd = (~ALUop[4])&(~ALUop[3])&(~ALUop[2])&(~ALUop[1])&(~ALUop[0]); //00000
-	 assign isSub = (~ALUop[4])&(~ALUop[3])&(~ALUop[2])&(~ALUop[1])&(ALUop[0]); //00001
-	 assign isAddi = (~opcode[4])&(~opcode[3])&(opcode[2])&(~opcode[1])&(opcode[0]); //00101
 	 
 	 assign ctrl_writeReg = overflow ? (5'd31 : ctrl_writeReg);
 	 // if overflow, then set if add, sub, or addi. else 0
