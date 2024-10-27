@@ -139,6 +139,7 @@ module processor(
 	 assign rd = instruction[26:22]; //destination register
 	 assign rs = instruction[21:17]; // source register
 	 assign rt = instruction[16:12]; // target ("second source") register
+	 assign imm = instruction[16:0]; //
 	 assign shamt = isAddi ? 5'b0 : instruction[11:7]; //shift amount
 	 assign ctrl_readRegA = rt; 
 	 assign ctrl_readRegB = rs;
@@ -148,10 +149,11 @@ module processor(
 	 assign isSub = (~ALUop[4])&(~ALUop[3])&(~ALUop[2])&(~ALUop[1])&(ALUop[0]); //00001
 	 assign isAddi = (~opcode[4])&(~opcode[3])&(opcode[2])&(~opcode[1])&(opcode[0]); //00101
 	 
+	 assign ALU_readB = isAddi ? : ctrl_RegB;
 	 //Execute ALU
 	 alu alu_operation(
         .data_operandA(ctrl_readRegA),      
-        .data_operandB(ctrl_readRegB), 
+        .data_operandB(ALU_readB), 
         .ctrl_ALUopcode(ALUop),       
         .ctrl_shiftamt(shamt),        
         .data_result(data_writeReg),           
