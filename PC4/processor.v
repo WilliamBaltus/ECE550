@@ -96,12 +96,15 @@ module processor(
 
 	 //Control wires
 	 wire Rwe, Rdst, ALUinB, DMwe, Rwd;
-	 wire[4:0] ALUop;
+	 wire[4:0] ALUop, shamt;
 	 
 	 // PC-related wires
     wire [31:0] pc_current, pc_next; 
 	 wire [31:0] increment_value = 32'd1; // Constant 1 for PC increment
     wire isNotEqual, isLessThan, overflow; // ALU flags
+	 wire [15:0] immediate;
+	 wire [31:0] immediate_sx;
+	 
 	 
 	 
 	 // Program Counter (PC) -- init to 0 is reset is high, else mumbo jumbo
@@ -135,21 +138,24 @@ module processor(
 									 .ALUop(ALUop));
 	 
 	 //ALU operation
-	 assign ctrl_writeReg = Rwe; //write enable
 	 assign rd = instruction[26:22]; //destination register
 	 assign rs = instruction[21:17]; // source register
 	 assign rt = instruction[16:12]; // target ("second source") register
-	 assign imm = instruction[16:0]; //
+	 assign immediate = instruction[15:0]; // get immediate in the case of an I type instruction
+	 assign immediate_sx = (instruction[16] == 1'b1) ? {15'b111111111111111, immediate} : {15'b000000000000000, immediate}; // immediate sx adjusted
 	 assign shamt = isAddi ? 5'b0 : instruction[11:7]; //shift amount
-	 assign ctrl_readRegA = rt; 
-	 assign ctrl_readRegB = rs;
+	 assign ctrl_readRegA = rs; 
+	 assign ctrl_readRegB = rt;
 	 assign ctrl_writeReg = rd;
 	 
 	 assign isAdd = (~ALUop[4])&(~ALUop[3])&(~ALUop[2])&(~ALUop[1])&(~ALUop[0]); //00000
 	 assign isSub = (~ALUop[4])&(~ALUop[3])&(~ALUop[2])&(~ALUop[1])&(ALUop[0]); //00001
 	 assign isAddi = (~opcode[4])&(~opcode[3])&(opcode[2])&(~opcode[1])&(opcode[0]); //00101
+	 assign isLW = (~opcode[4])&(opcode[3])&(~opcode[2])&(~opcode[1])&(~opcode[0]); //01000
+	 assign isSW = (~opcode[4])&(~opcode[3])&(opcode[2])&(opcode[1])&(opcode[0]); //00111
 	 
-	 assign ALU_readB = isAddi ? : ctrl_RegB;
+	 assign ALU_readB = isAddi ? immediate_sx : ctrl_readRegB; // Adjusts the second input to the addi_constant if necessary
+	 
 	 //Execute ALU
 	 alu alu_operation(
         .data_operandA(ctrl_readRegA),      
@@ -162,11 +168,15 @@ module processor(
         .overflow(overflow)
     );
 	 
-	 
-	 assign ctrl_writeReg = overflow ? (5'd31 : ctrl_writeReg);
+	 // ctrl_writeReg is $rstate ($31) is overflow, else it is $rd
+	 assign ctrl_writeReg = overflow ? (5'd31 : rd);
 	 // if overflow, then set if add, sub, or addi. else 0
 	 assign rStatus = overflow ? (isAdd? 32'd1 : (isSub ? 32'd3 : 32'd2)) : 32'd0;
-	 //overwrite writeReg if overflow detected, rStatus value set above
+	 //overwrite writeReg if overflow detected, rStatus value set above, and set to new address 
 	 assign data_writeReg = overflow ? rStatus : data_writeReg;
+	 
+	 assign address_dmem = data_writeReg;
+	 assign wren = DMwe; // this is what separates lw and sw (lw = 0, sw = 1)
+	  
 	 
 endmodule
