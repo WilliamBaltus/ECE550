@@ -89,20 +89,22 @@ module processor(
     output [4:0] ctrl_writeReg, ctrl_readRegA, ctrl_readRegB;
     output [31:0] data_writeReg;
     input [31:0] data_readRegA, data_readRegB;
+		
+	  /**********************************************************************************************
+	  **********************************CODE STARTS HERE********************************************* 
+	  ***********************************************************************************************/
 
-    /* YOUR CODE STARTS HERE */
-	 //control wires
+	 //Control wires
 	 wire Rwe, Rdst, ALUinB, DMwe, Rwd;
 	 wire[4:0] ALUop;
+	 
 	 // PC-related wires
     wire [31:0] pc_current, pc_next; 
-	 wire [31:0] increment_value = 32'd4; // Constant 4 for PC increment
+	 wire [31:0] increment_value = 32'd1; // Constant 1 for PC increment
     wire isNotEqual, isLessThan, overflow; // ALU flags
-	 assign current_pc = 32'b00000000000000000000000000000000;
-	 assign output_pc = 32'b00000000000000000000000000000000;
 	 
 	 
-	 // Program Counter (PC)
+	 // Program Counter (PC) -- init to 0 is reset is high, else mumbo jumbo
 	 pc program_counter(.clock(clock), 
 							  .reset(reset),
 							  .current_pc(current_pc),
@@ -121,6 +123,8 @@ module processor(
         .overflow(overflow)
     );
 	 
+	 assign address_imem = pc[11:0];  // where to read instruction code
+
 	 //Control Circuit (CC)
 	 control control_circuit(.instruction(q_imem), 
 									 .Rwe(Rwe), 
@@ -130,6 +134,36 @@ module processor(
 									 .Rwd(Rwd), 
 									 .ALUop(ALUop));
 	 
+	 //add operation
+	 assign ctrl_writeReg = Rwe; //write enable
+	 assign rd = instruction[26:22]; //destination register
+	 assign rs = instruction[21:17]; // source register
+	 assign rt = instruction[16:12]; // target ("second source") register
+	 assign shamt = instruction[11:7]; //shift amount
+	 assign ctrl_readRegA = rt; 
+	 assign ctrl_readRegB = rs;
+	 assign ctrl_writeReg = rd;
 	 
-    
+	 //Execute ALU
+	 alu alu_operation(
+        .data_operandA(ctrl_readRegA),      
+        .data_operandB(ctrl_readRegB), 
+        .ctrl_ALUopcode(ALUop),       
+        .ctrl_shiftamt(shamt),        
+        .data_result(data_writeReg),           
+        .isNotEqual(isNotEqual),
+        .isLessThan(isLessThan),
+        .overflow(overflow)
+    );
+	 
+	 assign isAdd = (~ALUop[4])&(~ALUop[3])&(~ALUop[2])&(~ALUop[1])&(~ALUop[0]); //00000
+	 assign isSub = (~ALUop[4])&(~ALUop[3])&(~ALUop[2])&(~ALUop[1])&(ALUop[0]); //00001
+	 assign isAddi = (~opcode[4])&(~opcode[3])&(opcode[2])&(~opcode[1])&(opcode[0]); //00101
+	 
+	 assign ctrl_writeReg = overflow ? (5'd31 : ctrl_writeReg);
+	 // if overflow, then set if add, sub, or addi. else 0
+	 assign rStatus = overflow ? (isAdd? 32'd1 : (isSub ? 32'd3 : 32'd2)) : 32'd0;
+	 //overwrite writeReg if overflow detected, rStatus value set above
+	 assign data_writeReg = overflow ? rStatus : data_writeReg;
+	 
 endmodule
