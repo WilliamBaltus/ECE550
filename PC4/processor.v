@@ -96,7 +96,12 @@ module processor(
 
 	 //Control wires
 	 wire Rwe, Rdst, ALUinB, DMwe, Rwd;
-	 wire[4:0] ALUop, shamt;
+	 wire[4:0] ALUop, shamt, opcode;
+	 wire [4:0] rd, rs, rt;
+	 wire [31:0] instruction;
+	 wire [31:0] rStatus;
+	 wire [31:0] write_data_reg;
+	 wire [31:0] alu_result;
 	 
 	 // PC-related wires
     wire [31:0] pc_current, pc_next; 
@@ -110,8 +115,8 @@ module processor(
 	 // Program Counter (PC) -- init to 0 is reset is high, else mumbo jumbo
 	 pc program_counter(.clock(clock), 
 							  .reset(reset),
-							  .current_pc(current_pc),
-							  .output_pc(output_pc));
+							  .pc_current(pc_current),
+							  .pc_next(pc_next));
 							  
 							  
 	 // PC increment
@@ -126,7 +131,7 @@ module processor(
         .overflow(overflow)
     );
 	 
-	 assign address_imem = pc[11:0];  // where to read instruction code
+	 assign address_imem = pc_current[11:0];  // where to read instruction code
 
 	 //Control Circuit (CC)
 	 control control_circuit(.instruction(q_imem), 
@@ -138,15 +143,15 @@ module processor(
 									 .ALUop(ALUop));
 	 
 	 //ALU operation
+	 assign opcode = instruction[31:27];
 	 assign rd = instruction[26:22]; //destination register
 	 assign rs = instruction[21:17]; // source register
 	 assign rt = instruction[16:12]; // target ("second source") register
 	 assign immediate = instruction[15:0]; // get immediate in the case of an I type instruction
-	 assign immediate_sx = (instruction[16] == 1'b1) ? {15'b111111111111111, immediate} : {15'b000000000000000, immediate}; // immediate sx adjusted
+	 assign immediate_sx = (instruction[16] == 1'b1) ? {16'b1111111111111111, immediate} : {16'b0000000000000000, immediate}; // immediate sx adjusted
 	 assign shamt = isAddi ? 5'b0 : instruction[11:7]; //shift amount
 	 assign ctrl_readRegA = rs; 
 	 assign ctrl_readRegB = rt;
-	 assign ctrl_writeReg = rd;
 	 
 	 assign isAdd = (~ALUop[4])&(~ALUop[3])&(~ALUop[2])&(~ALUop[1])&(~ALUop[0]); //00000
 	 assign isSub = (~ALUop[4])&(~ALUop[3])&(~ALUop[2])&(~ALUop[1])&(ALUop[0]); //00001
@@ -154,28 +159,30 @@ module processor(
 	 assign isLW = (~opcode[4])&(opcode[3])&(~opcode[2])&(~opcode[1])&(~opcode[0]); //01000
 	 assign isSW = (~opcode[4])&(~opcode[3])&(opcode[2])&(opcode[1])&(opcode[0]); //00111
 	 
-	 assign ALU_readB = isAddi ? immediate_sx : ctrl_readRegB; // Adjusts the second input to the addi_constant if necessary
+	 assign ALU_readB = isAddi ? immediate_sx : data_readRegB; // Adjusts the second input to the addi_constant if necessary
 	 
 	 //Execute ALU
 	 alu alu_operation(
-        .data_operandA(ctrl_readRegA),      
+        .data_operandA(data_readRegA),      
         .data_operandB(ALU_readB), 
         .ctrl_ALUopcode(ALUop),       
         .ctrl_shiftamt(shamt),        
-        .data_result(data_writeReg),           
+        .data_result(alu_result),           
         .isNotEqual(isNotEqual),
         .isLessThan(isLessThan),
         .overflow(overflow)
     );
 	 
 	 // ctrl_writeReg is $rstate ($31) is overflow, else it is $rd
-	 assign ctrl_writeReg = overflow ? (5'd31 : rd);
+	 assign ctrl_writeReg = overflow ? 5'd31 : rd;
 	 // if overflow, then set if add, sub, or addi. else 0
 	 assign rStatus = overflow ? (isAdd? 32'd1 : (isSub ? 32'd3 : 32'd2)) : 32'd0;
-	 //overwrite writeReg if overflow detected, rStatus value set above, and set to new address 
-	 assign data_writeReg = overflow ? rStatus : data_writeReg;
+	 //overwrite writeReg if overflow detected, q_dmem if Rwd is true, and the original data_writeReg if neither 
+	 assign write_data_reg = overflow ? rStatus : (Rwd ? q_dmem : alu_result);
+	 assign data_writeReg = write_data_reg;
 	 
-	 assign address_dmem = data_writeReg;
+	 assign address_dmem = data_writeReg[11:0];
+	 assign data = data_readRegB;
 	 assign wren = DMwe; // this is what separates lw and sw (lw = 0, sw = 1)
 	  
 	 

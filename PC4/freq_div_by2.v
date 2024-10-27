@@ -1,13 +1,13 @@
 //sourced from https://referencedesigner.com/tutorials/verilogexamples/verilog_ex_02.php as given 
-module freq_div_by2 ( clk ,rst,out_clk );
-output reg out_clk;
+module freq_div_by2 ( clk ,reset,clk_out );
+output reg clk_out;
 input clk ;
-input rst;
+input reset;
 always @(posedge clk)
 begin
-if (~rst)
-     out_clk <= 1'b0;
+if (~reset)
+     clk_out <= 1'b0;
 else
-     out_clk <= ~out_clk;	
+     clk_out <= ~clk_out;	
 end
 endmodule
