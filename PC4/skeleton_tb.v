@@ -1,18 +1,23 @@
-module skeleton_tb;
+module processor_tb;
 
-    // Declare testbench signals for clock and reset
     reg clock;
     reg reset;
-    
-    // Declare wires to observe outputs from skeleton module
-    wire imem_clock;
-    wire dmem_clock;
-    wire processor_clock;
-    wire regfile_clock;
+
+    wire imem_clock, dmem_clock, processor_clock, regfile_clock;
+
+    // Processor IO
     wire [11:0] address_imem;
     wire [31:0] q_imem;
+    wire [11:0] address_dmem;
+    wire [31:0] data;
+    wire wren;
+    wire [31:0] q_dmem;
+    wire ctrl_writeEnable;
+    wire [4:0] ctrl_writeReg, ctrl_readRegA, ctrl_readRegB;
+    wire [31:0] data_writeReg;
+    wire [31:0] data_readRegA, data_readRegB;
 
-    // Instantiate the skeleton module (Unit Under Test, or UUT)
+    // Instantiate skeleton (top-level module for the processor)
     skeleton uut (
         .clock(clock),
         .reset(reset),
@@ -22,30 +27,37 @@ module skeleton_tb;
         .regfile_clock(regfile_clock)
     );
 
-    // Clock Generation: Toggle clock every 10 ns for a 50 MHz clock
+    // Clock generation (50 MHz clock cycle)
+    always #10 clock = ~clock;
+
     initial begin
+        // Initialize signals
         clock = 0;
-        forever #10 clock = ~clock; // 50 MHz clock (period of 20 ns)
-    end
-
-    // Simulation control
-    initial begin
-        // Initialize reset
         reset = 1;
-        #20; // Keep reset high for 20 ns to initialize the PC
-        reset = 0; // Release reset, allowing the processor to start executing
 
-        // Run the simulation for a specified amount of time
-        #200; // Run for 200 ns (adjust as needed to observe behavior)
+        // Apply reset
+        #20 reset = 0;
 
-        // End the simulation
-        $stop;
-    end
+        // Load instructions into imem (assuming imem.mif handles this in Quartus)
+        // Optionally, add instructions directly if not using .mif files:
+        // imem_memory[0] = 32'hxxxx_xxxx; // Assembly instruction 1
+        // imem_memory[1] = 32'hxxxx_xxxx; // Assembly instruction 2
 
-    // Monitor output values to the console for debugging
-    initial begin
-        $monitor("Time = %0dns, address_imem = %h, q_imem = %h", 
-                 $time, uut.address_imem, uut.q_imem);
+        // Run the processor for a certain number of cycles
+        #100;  // Run the processor for 100 time units
+
+        // Display register values after executing some instructions
+        $display("Register values:");
+        $display("data_readRegA (rs): %h", data_readRegA);
+        $display("data_readRegB (rt): %h", data_readRegB);
+        $display("data_writeReg (rd): %h", data_writeReg);
+        $display("ctrl_writeReg (Destination Register): %d", ctrl_writeReg);
+        $display("Overflow: %b", uut.my_processor.overflow_alu);
+
+        // Add any specific checks or monitors for debugging here if necessary
+
+        // Finish simulation
+        #20 $stop;
     end
 
 endmodule

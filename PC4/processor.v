@@ -144,6 +144,13 @@ module processor(
 	 
 	 //ALU operation
 	 assign opcode = instruction[31:27];
+	 
+	 assign isAdd = (~ALUop[4])&(~ALUop[3])&(~ALUop[2])&(~ALUop[1])&(~ALUop[0]); //00000
+	 assign isSub = (~ALUop[4])&(~ALUop[3])&(~ALUop[2])&(~ALUop[1])&(ALUop[0]); //00001
+	 assign isAddi = (~opcode[4])&(~opcode[3])&(opcode[2])&(~opcode[1])&(opcode[0]); //00101
+	 assign isLW = (~opcode[4])&(opcode[3])&(~opcode[2])&(~opcode[1])&(~opcode[0]); //01000
+	 assign isSW = (~opcode[4])&(~opcode[3])&(opcode[2])&(opcode[1])&(opcode[0]); //00111
+	 
 	 assign rd = instruction[26:22]; //destination register
 	 assign rs = instruction[21:17]; // source register
 	 assign rt = instruction[16:12]; // target ("second source") register
@@ -153,11 +160,7 @@ module processor(
 	 assign ctrl_readRegA = rs; 
 	 assign ctrl_readRegB = rt;
 	 
-	 assign isAdd = (~ALUop[4])&(~ALUop[3])&(~ALUop[2])&(~ALUop[1])&(~ALUop[0]); //00000
-	 assign isSub = (~ALUop[4])&(~ALUop[3])&(~ALUop[2])&(~ALUop[1])&(ALUop[0]); //00001
-	 assign isAddi = (~opcode[4])&(~opcode[3])&(opcode[2])&(~opcode[1])&(opcode[0]); //00101
-	 assign isLW = (~opcode[4])&(opcode[3])&(~opcode[2])&(~opcode[1])&(~opcode[0]); //01000
-	 assign isSW = (~opcode[4])&(~opcode[3])&(opcode[2])&(opcode[1])&(opcode[0]); //00111
+	 
 	 
 	 assign ALU_readB = isAddi ? immediate_sx : data_readRegB; // Adjusts the second input to the addi_constant if necessary
 	 
