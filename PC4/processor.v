@@ -106,7 +106,7 @@ module processor(
 	 // PC-related wires
     wire [31:0] pc_current, pc_next; 
 	 wire [31:0] increment_value = 32'd1; // Constant 1 for PC increment
-    wire isNotEqual, isLessThan, overflow; // ALU flags
+    wire isNotEqual, isLessThan, overflow_pc, overflow_alu; // ALU flags
 	 wire [15:0] immediate;
 	 wire [31:0] immediate_sx;
 	 
@@ -128,7 +128,7 @@ module processor(
         .data_result(pc_next),           // Result assigned to pc_next
         .isNotEqual(isNotEqual),
         .isLessThan(isLessThan),
-        .overflow(overflow)
+        .overflow(overflow_pc)
     );
 	 
 	 assign address_imem = pc_current[11:0];  // where to read instruction code
@@ -170,15 +170,15 @@ module processor(
         .data_result(alu_result),           
         .isNotEqual(isNotEqual),
         .isLessThan(isLessThan),
-        .overflow(overflow)
+        .overflow(overflow_alu)
     );
 	 
 	 // ctrl_writeReg is $rstate ($31) is overflow, else it is $rd
-	 assign ctrl_writeReg = overflow ? 5'd31 : rd;
+	 assign ctrl_writeReg = overflow_alu ? 5'd31 : rd;
 	 // if overflow, then set if add, sub, or addi. else 0
-	 assign rStatus = overflow ? (isAdd? 32'd1 : (isSub ? 32'd3 : 32'd2)) : 32'd0;
+	 assign rStatus = overflow_alu ? (isAdd? 32'd1 : (isSub ? 32'd3 : 32'd2)) : 32'd0;
 	 //overwrite writeReg if overflow detected, q_dmem if Rwd is true, and the original data_writeReg if neither 
-	 assign write_data_reg = overflow ? rStatus : (Rwd ? q_dmem : alu_result);
+	 assign write_data_reg = overflow_alu ? rStatus : (Rwd ? q_dmem : alu_result);
 	 assign data_writeReg = write_data_reg;
 	 
 	 assign address_dmem = data_writeReg[11:0];
