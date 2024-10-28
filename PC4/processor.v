@@ -109,7 +109,7 @@ module processor(
     wire isNotEqual, isLessThan, overflow_pc, overflow_alu; // ALU flags
 	 wire [15:0] immediate;
 	 wire [31:0] immediate_sx;
-	 
+	 wire isAdd, isSub, isAddi, isLW, isSW;
 	 
 	 
 	 // Program Counter (PC) -- init to 0 is reset is high, else mumbo jumbo
