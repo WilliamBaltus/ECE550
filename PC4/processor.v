@@ -113,10 +113,12 @@ module processor(
 	 
 	 
 	 // Program Counter (PC) -- init to 0 is reset is high, else mumbo jumbo
-	 pc program_counter(.clock(clock), 
-							  .reset(reset),
-							  .pc_current(pc_current),
-							  .pc_next(pc_next));
+	 pc program_counter(
+			 .clock(clock), 
+			 .reset(reset),
+			 .pc_current(pc_current), // Current PC as the output
+			 .pc_next(pc_next)        // Next PC as the input
+		);
 							  
 							  
 	 // PC increment
@@ -161,7 +163,7 @@ module processor(
 	 assign ctrl_readRegB = rt;
 	 
 	 
-	 
+	 wire [31:0] ALU_readB;
 	 assign ALU_readB = isAddi ? immediate_sx : data_readRegB; // Adjusts the second input to the addi_constant if necessary
 	 
 	 //Execute ALU

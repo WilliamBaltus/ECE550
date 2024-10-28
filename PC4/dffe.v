@@ -1,4 +1,4 @@
-module dffe(q, d, clk, en, clr);
+module dffe_ref(q, d, clk, en, clr);
    
    //Inputs
    input d, clk, en, clr;
