@@ -157,7 +157,7 @@ module processor(
 	 assign rs = instruction[21:17]; // source register
 	 assign rt = instruction[16:12]; // target ("second source") register
 	 assign immediate = instruction[15:0]; // get immediate in the case of an I type instruction
-	 assign immediate_sx = (instruction[16] == 1'b1) ? {16'b1111111111111111, immediate} : {16'b0000000000000000, immediate}; // immediate sx adjusted
+	 assign immediate_sx = instruction[16] ? {16'b1111111111111111, immediate} : {16'b0000000000000000, immediate}; // immediate sx adjusted
 	 assign shamt = isAddi ? 5'b0 : instruction[11:7]; //shift amount
 	 assign ctrl_readRegA = rs; 
 	 assign ctrl_readRegB = rt;
