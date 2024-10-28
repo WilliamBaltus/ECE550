@@ -17,11 +17,12 @@ module control(instruction, Rwe, Rdst, ALUinB, DMwe, Rwd, ALUop);
 	//three cases 1. add,sub,and,or, sll, sra (aluopcode) 2. sw 3. lw
 	assign isSW = (~opcode[4])&(~opcode[3])&(opcode[2])&(opcode[1])&(opcode[0]); //00111
 	assign isLW = (~opcode[4])&(opcode[3])&(~opcode[2])&(~opcode[1])&(~opcode[0]); //01000
+	assign isAddi = (~opcode[4])&(~opcode[3])&(opcode[2])&(~opcode[1])&(opcode[0]); //00101
 	
 	//assign based on control truth table
-	assign Rwe = isRtype | isLW; //regwrite
+	assign Rwe = isRtype | isAddi | isLW; //regwrite
 	assign Rdst = isRtype ? 1'b0 : 1'b1; //reg dst
-	assign ALUinB = isSW | isLW; //alusrc
+	assign ALUinB = isAddi | isSW | isLW; //alusrc
 	assign DMwe = isSW; //memwrite
 	assign Rwd = isLW; //memtoreg
 	
