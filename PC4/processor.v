@@ -111,6 +111,7 @@ module processor(
 	 wire [31:0] immediate_sx;
 	 wire isAdd, isSub, isAddi, isLW, isSW;
 	 
+	 assign instruction = q_imem; // instruction is our imem value
 	 
 	 // Program Counter (PC) -- init to 0 is reset is high, else mumbo jumbo
 	 pc program_counter(
@@ -136,7 +137,7 @@ module processor(
 	 assign address_imem = pc_current[11:0];  // where to read instruction code
 
 	 //Control Circuit (CC)
-	 control control_circuit(.instruction(q_imem), 
+	 control control_circuit(.instruction(instruction), 
 									 .Rwe(Rwe), 
 									 .Rdst(Rdst), 
 									 .ALUinB(ALUinB), 
@@ -164,7 +165,7 @@ module processor(
 	 
 	 
 	 wire [31:0] ALU_readB;
-	 assign ALU_readB = isAddi ? immediate_sx : data_readRegB; // Adjusts the second input to the addi_constant if necessary
+	 assign ALU_readB = ALUinB ? immediate_sx : data_readRegB; // Adjusts the second input to the addi_constant if necessary
 	 
 	 //Execute ALU
 	 alu alu_operation(
@@ -178,6 +179,8 @@ module processor(
         .overflow(overflow_alu)
     );
 	 
+	 // Assign write enable signal for regfile
+	 assign ctrl_writeEnable = Rwe;
 	 // ctrl_writeReg is $rstate ($31) is overflow, else it is $rd
 	 assign ctrl_writeReg = overflow_alu ? 5'd31 : rd;
 	 // if overflow, then set if add, sub, or addi. else 0
