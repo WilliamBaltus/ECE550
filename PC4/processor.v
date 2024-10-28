@@ -157,7 +157,7 @@ module processor(
 	 assign rs = instruction[21:17]; // source register
 	 assign rt = instruction[16:12]; // target ("second source") register
 	 assign immediate = instruction[15:0]; // get immediate in the case of an I type instruction
-	 assign immediate_sx = instruction[16] ? {16'b1111111111111111, immediate} : {16'b0000000000000000, immediate}; // immediate sx adjusted
+	 assign immediate_sx = instruction[15] ? {16'b1111111111111111, immediate} : {16'b0000000000000000, immediate}; // immediate sx adjusted
 	 assign shamt = isAddi ? 5'b0 : instruction[11:7]; //shift amount
 	 assign ctrl_readRegA = rs; 
 	 assign ctrl_readRegB = rt;
@@ -186,7 +186,7 @@ module processor(
 	 assign write_data_reg = overflow_alu ? rStatus : (Rwd ? q_dmem : alu_result);
 	 assign data_writeReg = write_data_reg;
 	 
-	 assign address_dmem = data_writeReg[11:0];
+	 assign address_dmem = alu_result[11:0];
 	 assign data = data_readRegB;
 	 assign wren = DMwe; // this is what separates lw and sw (lw = 0, sw = 1)
 	  

@@ -4,7 +4,7 @@ module control(instruction, Rwe, Rdst, ALUinB, DMwe, Rwd, ALUop);
 	output [4:0] ALUop;
 	
 	wire [4:0] opcode;
-	wire Rwe,Rdst, ALUinB, DMwe, Rwd, isRtype, isSW, isLW;
+	wire isRtype, isSW, isLW;
 	wire[4:0] ALUop;
 	assign opcode = instruction[31:27];
 	

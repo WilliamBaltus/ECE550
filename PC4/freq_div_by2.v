@@ -5,7 +5,7 @@ input clk ;
 input reset;
 always @(posedge clk)
 begin
-if (~reset)
+if (reset)
      clk_out <= 1'b0;
 else
      clk_out <= ~clk_out;	
