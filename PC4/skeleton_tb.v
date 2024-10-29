@@ -40,23 +40,14 @@ module skeleton_tb;
         #20 reset = 0;
         $display("Reset deasserted");
 
-        // Let the processor clock run for a couple of cycles
-        repeat (4) @(posedge processor_clock);
+        // Let the processor clock run for a certain number of cycles
+        repeat (20) @(posedge processor_clock);
 
-        // Display register values after a few cycles
-        $display("Observing register file data after initial processor cycles...");
-        $display("Register values:");
-        
-        // Loop through and display register values
+        // Display register values after cycles
+        $display("Final register values after 20 processor cycles:");
         for (i = 0; i < 32; i = i + 1) begin
-            $display("Register %0d: %h", i, uut.my_regfile.registers[i]);
+            $display("Register %0d: %h (hex) --- %0d (decimal)", i, uut.my_regfile.registers[i], uut.my_regfile.registers[i]);
         end
-
-        // Run a few more processor cycles and display selected registers
-        repeat (4) @(posedge processor_clock);
-        $display("Time: %0t | Additional register check after more cycles", $time);
-        $display("Reg 0: %h | Reg 1: %h | Reg 2: %h",
-                 uut.my_regfile.registers[0], uut.my_regfile.registers[1], uut.my_regfile.registers[2]);
 
         // End simulation
         $display("Ending testbench.");
