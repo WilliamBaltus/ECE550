@@ -182,11 +182,14 @@ module processor(
 	 // Assign write enable signal for regfile
 	 assign ctrl_writeEnable = Rwe;
 	 // ctrl_writeReg is $rstate ($31) is overflow, else it is $rd
-	 assign ctrl_writeReg = overflow_alu ? 5'd30 : rd;
+	 //assign ctrl_writeReg = overflow_alu ? 5'd30 : rd; 
+	 assign ctrl_writeReg = overflow_alu ? (isAdd? 5'd30 : (isSub ? 5'd30 : (isAddi ? 32'd30 : rd))) : rd;
 	 // if overflow, then set if add, sub, or addi. else 0
-	 assign rStatus = overflow_alu ? (isAdd? 32'd1 : (isSub ? 32'd3 : 32'd2)) : 32'd0;
+	 //assign rStatus = overflow_alu ? (isAdd? 32'd1 : (isSub ? 32'd3 : 32'd2)) : 32'd0;
+	 assign rStatus = overflow_alu ? (isAdd? 32'd1 : (isSub ? 32'd3 : (isAddi ? 32'd2 : 32'd0))) : 32'd0;
 	 //overwrite writeReg if overflow detected, q_dmem if Rwd is true, and the original data_writeReg if neither 
-	 assign write_data_reg = overflow_alu ? rStatus : (Rwd ? q_dmem : alu_result);
+	 assign overflow_alu_add_sub = (overflow_alu)&(isSub|isAdd|isAddi);
+	 assign write_data_reg = overflow_alu_add_sub ? rStatus : (Rwd ? q_dmem : alu_result);
 	 assign data_writeReg = write_data_reg;
 	 
 	 assign address_dmem = alu_result[11:0];
