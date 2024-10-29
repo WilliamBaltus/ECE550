@@ -161,7 +161,7 @@ module processor(
 	 assign immediate_sx = instruction[15] ? {16'b1111111111111111, immediate} : {16'b0000000000000000, immediate}; // immediate sx adjusted
 	 assign shamt = isAddi ? 5'b0 : instruction[11:7]; //shift amount
 	 assign ctrl_readRegA = rs; 
-	 assign ctrl_readRegB = rt;
+	 assign ctrl_readRegB = isSW ? rd : rt;
 	 
 	 
 	 wire [31:0] ALU_readB;
