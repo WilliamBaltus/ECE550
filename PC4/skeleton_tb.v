@@ -40,38 +40,13 @@ module skeleton_tb;
         #20 reset = 0;
         $display("Reset deasserted");
 
-        // Run the processor for several cycles, checking registers periodically
-        repeat (4) @(posedge processor_clock);
-        $display("Checking register values after 4 processor cycles...");
-        for (i = 0; i < 32; i = i + 1) begin
-            $display("Register %0d: %h", i, uut.my_regfile.registers[i]);
-        end
+        // Let the processor clock run for a certain number of cycles
+        repeat (20) @(posedge processor_clock);
 
-        // Repeat this in increments to allow more instructions to execute
-        repeat (4) @(posedge processor_clock);
-        $display("Checking register values after 8 processor cycles...");
+        // Display register values after cycles
+        $display("Final register values after 20 processor cycles:");
         for (i = 0; i < 32; i = i + 1) begin
-            $display("Register %0d: %h", i, uut.my_regfile.registers[i]);
-        end
-
-        repeat (4) @(posedge processor_clock);
-        $display("Checking register values after 12 processor cycles...");
-        for (i = 0; i < 32; i = i + 1) begin
-            $display("Register %0d: %h", i, uut.my_regfile.registers[i]);
-        end
-
-        // Let the processor run for more cycles to observe any additional updates
-        repeat (8) @(posedge processor_clock);
-        $display("Checking register values after 20 processor cycles...");
-        for (i = 0; i < 32; i = i + 1) begin
-            $display("Register %0d: %h", i, uut.my_regfile.registers[i]);
-        end
-
-        // Final check after more cycles
-        repeat (8) @(posedge processor_clock);
-        $display("Final register values after 28 processor cycles:");
-        for (i = 0; i < 32; i = i + 1) begin
-            $display("Register %0d: %h", i, uut.my_regfile.registers[i]);
+            $display("Register %0d: %h (hex) --- %0d (decimal)", i, uut.my_regfile.registers[i], uut.my_regfile.registers[i]);
         end
 
         // End simulation
