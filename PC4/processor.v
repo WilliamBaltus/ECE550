@@ -107,7 +107,7 @@ module processor(
     wire [31:0] pc_current, pc_next; 
 	 wire [31:0] increment_value = 32'd1; // Constant 1 for PC increment
     wire isNotEqual, isLessThan, overflow_pc, overflow_alu; // ALU flags
-	 wire [15:0] immediate;
+	 wire [16:0] immediate;
 	 wire [31:0] immediate_sx;
 	 wire isAdd, isSub, isAddi, isLW, isSW;
 	 
@@ -148,7 +148,7 @@ module processor(
 	 //ALU operation
 	 assign opcode = instruction[31:27];
 	 
-	 assign isAdd = (~ALUop[4])&(~ALUop[3])&(~ALUop[2])&(~ALUop[1])&(~ALUop[0]); //00000
+	 assign isAdd = (~ALUop[4])&(~ALUop[3])&(~ALUop[2])&(~ALUop[1])&(~ALUop[0])&(~isAddi); //00000
 	 assign isSub = (~ALUop[4])&(~ALUop[3])&(~ALUop[2])&(~ALUop[1])&(ALUop[0]); //00001
 	 assign isAddi = (~opcode[4])&(~opcode[3])&(opcode[2])&(~opcode[1])&(opcode[0]); //00101
 	 assign isLW = (~opcode[4])&(opcode[3])&(~opcode[2])&(~opcode[1])&(~opcode[0]); //01000
@@ -159,6 +159,8 @@ module processor(
 	 assign rt = instruction[16:12]; // target ("second source") register
 	 assign immediate = instruction[16:0]; // get immediate in the case of an I type instruction
 	 assign immediate_sx = instruction[16] ? {15'b111111111111111, immediate} : {15'b000000000000000, immediate}; // immediate sx adjusted
+	 //assign immediate = instruction[15:0]; // Immediate is 16 bits
+	 //assign immediate_sx = instruction[15] ? {16'b1111111111111111, immediate} : {16'b0000000000000000, immediate};
 	 assign shamt = isAddi ? 5'b0 : instruction[11:7]; //shift amount
 	 assign ctrl_readRegA = rs; 
 	 assign ctrl_readRegB = isSW ? rd : rt;
@@ -183,7 +185,7 @@ module processor(
 	 assign ctrl_writeEnable = Rwe;
 	 // ctrl_writeReg is $rstate ($31) is overflow, else it is $rd
 	 //assign ctrl_writeReg = overflow_alu ? 5'd30 : rd; 
-	 assign ctrl_writeReg = overflow_alu ? (isAdd? 5'd30 : (isSub ? 5'd30 : (isAddi ? 32'd30 : rd))) : rd;
+	 assign ctrl_writeReg = overflow_alu ? (isAdd? 5'd30 : (isSub ? 5'd30 : (isAddi ? 5'd30 : rd))) : rd;
 	 // if overflow, then set if add, sub, or addi. else 0
 	 //assign rStatus = overflow_alu ? (isAdd? 32'd1 : (isSub ? 32'd3 : 32'd2)) : 32'd0;
 	 assign rStatus = overflow_alu ? (isAdd? 32'd1 : (isSub ? 32'd3 : (isAddi ? 32'd2 : 32'd0))) : 32'd0;

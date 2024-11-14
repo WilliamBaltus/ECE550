@@ -14,7 +14,7 @@ module control(instruction, Rwe, Rdst, ALUinB, DMwe, Rwd, ALUop);
 	assign ALUop = isRtype? instruction[6:2] : 5'b00000;	
 	
 	//assign control signal outputs
-	//three cases 1. add,sub,and,or, sll, sra (aluopcode) 2. sw 3. lw
+	//three cases 1. add,sub,and,or, sll, sra (aluopcode) 2. sw 3. lw 4. addi
 	assign isSW = (~opcode[4])&(~opcode[3])&(opcode[2])&(opcode[1])&(opcode[0]); //00111
 	assign isLW = (~opcode[4])&(opcode[3])&(~opcode[2])&(~opcode[1])&(~opcode[0]); //01000
 	assign isAddi = (~opcode[4])&(~opcode[3])&(opcode[2])&(~opcode[1])&(opcode[0]); //00101
