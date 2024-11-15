@@ -90,12 +90,12 @@ module processor(
     output [31:0] data_writeReg;
     input [31:0] data_readRegA, data_readRegB;
 		
-	  /**********************************************************************************************
-	  **********************************CODE STARTS HERE********************************************* 
-	  ***********************************************************************************************/
+	 /**********************************************************************************************
+	 **********************************CODE STARTS HERE********************************************* 
+	 ***********************************************************************************************/
 
 	 //Control wires
-	 wire Rwe, Rdst, ALUinB, DMwe, Rwd;
+	 wire Rwe, Rdst, ALUinB, DMwe, Rwd, BR, JP;
 	 wire[4:0] ALUop, shamt, opcode;
 	 wire [4:0] rd, rs, rt, rd_rt;
 	 wire [31:0] instruction;
@@ -104,12 +104,12 @@ module processor(
 	 wire [31:0] alu_result;
 	 
 	 // PC-related wires
-    wire [31:0] pc_current, pc_next; 
+    wire [31:0] pc_current, pc_next, pc_next_branch, pc_next_incremented; 
 	 wire [31:0] increment_value = 32'd1; // Constant 1 for PC increment
     wire isNotEqual, isLessThan, overflow_pc, overflow_alu; // ALU flags
 	 wire [16:0] immediate;
 	 wire [31:0] immediate_sx;
-	 wire isAdd, isSub, isAddi, isLW, isSW;
+	 wire isAdd, isSub, isAddi, isLW, isSW, isBR, isJP;
 	 
 	 assign instruction = q_imem; // instruction is our imem value
 	 
@@ -128,7 +128,7 @@ module processor(
         .data_operandB(increment_value), // Increment by 4
         .ctrl_ALUopcode(5'b00000),       // Opcode for addition
         .ctrl_shiftamt(5'b00000),        // No shift required
-        .data_result(pc_next),           // Result assigned to pc_next
+        .data_result(pc_next_incremented),           // Result assigned to pc_next
         .isNotEqual(isNotEqual),
         .isLessThan(isLessThan),
         .overflow(overflow_pc)
@@ -143,7 +143,9 @@ module processor(
 									 .ALUinB(ALUinB), 
 									 .DMwe(DMwe), 
 									 .Rwd(Rwd), 
-									 .ALUop(ALUop));
+									 .ALUop(ALUop),
+									 .BR(BR),
+									 .JP(JP));
 	 
 	 //ALU operation
 	 assign opcode = instruction[31:27];
@@ -159,17 +161,14 @@ module processor(
 	 assign rt = instruction[16:12]; // target ("second source") register
 	 assign immediate = instruction[16:0]; // get immediate in the case of an I type instruction
 	 assign immediate_sx = instruction[16] ? {15'b111111111111111, immediate} : {15'b000000000000000, immediate}; // immediate sx adjusted
-	 //assign immediate = instruction[15:0]; // Immediate is 16 bits
-	 //assign immediate_sx = instruction[15] ? {16'b1111111111111111, immediate} : {16'b0000000000000000, immediate};
 	 assign shamt = isAddi ? 5'b0 : instruction[11:7]; //shift amount
 	 assign ctrl_readRegA = rs; 
 	 assign ctrl_readRegB = isSW ? rd : rt;
 	 
-	 
 	 wire [31:0] ALU_readB;
 	 assign ALU_readB = ALUinB ? immediate_sx : data_readRegB; // Adjusts the second input to the addi_constant if necessary
 	 
-	 //Execute ALU
+	 //Execute Primary ALU (after reg file)
 	 alu alu_operation(
         .data_operandA(data_readRegA),      
         .data_operandB(ALU_readB), 
@@ -180,6 +179,41 @@ module processor(
         .isLessThan(isLessThan),
         .overflow(overflow_alu)
     );
+	 
+	 //PC5
+	 wire[4:0] branch_ALUop;
+	 wire branch_isNotEqual, branch_isLessThan, branch_overflow_alu;
+	 wire[31:0] branch_alu_result;
+	 assign branch_ALUop = 5'b0; //set branch_ALUop to add by default
+	 
+	 
+	 //Execute branch ALU
+	 alu branch_alu_operation(
+        .data_operandA(pc_next_incremented),      
+        .data_operandB(immediate_sx), 
+        .ctrl_ALUopcode(branch_ALUop),       
+        .ctrl_shiftamt(shamt),        
+        .data_result(branch_alu_result),           
+        .isNotEqual(branch_isNotEqual),
+        .isLessThan(branch_isLessThan),
+        .overflow(branch_overflow_alu)
+    );
+	 
+	 //PC5 ALU + circuity
+	 assign isBR = BR && branch_isNotEqual;
+	//======================================================================@TODO 
+	//======================================================================@
+	//======================================================================@
+	//======================================================================@
+	//======================================================================@
+	//======================================================================@
+	//======================================================================@ 
+	//update JI TArget for JR (and check shift left 2 like in slides)
+	 wire[26:0] JI_Target;
+	 assign JI_Target = instruction[26:0];
+	 assign pc_next = JP ? {5'b0, JI_Target} : // Extend JI_Target to 32 bits, guaranteed to never be used per instructions
+                     (isBR ? pc_next_branch : // If branch condition met, go to branch target
+                      pc_next_incremented); 
 	 
 	 // Assign write enable signal for regfile
 	 assign ctrl_writeEnable = Rwe;
@@ -197,6 +231,5 @@ module processor(
 	 assign address_dmem = alu_result[11:0];
 	 assign data = data_readRegB;
 	 assign wren = DMwe; // this is what separates lw and sw (lw = 0, sw = 1)
-	  
-	 
+	  	 
 endmodule
