@@ -97,7 +97,7 @@ module processor(
 	 //Control wires
 	 wire Rwe, Rdst, ALUinB, DMwe, Rwd, BR, JP;
 	 wire[4:0] ALUop, shamt, opcode;
-	 wire [4:0] rd, rs, rt, rd_rt;
+	 wire [4:0] rd, rs, rt, rd_temp;
 	 wire [31:0] instruction;
 	 wire [31:0] rStatus;
 	 wire [31:0] write_data_reg;
@@ -109,7 +109,7 @@ module processor(
     wire isNotEqual, isLessThan, overflow_pc, overflow_alu; // ALU flags
 	 wire [16:0] immediate;
 	 wire [31:0] immediate_sx;
-	 wire isAdd, isSub, isAddi, isLW, isSW, isBR, isJP;
+	 wire isAdd, isSub, isAddi, isLW, isSW, isBR, isJP, isJr, isBlt, isBex, isSetx;
 	 
 	 assign instruction = q_imem; // instruction is our imem value
 	 
@@ -156,7 +156,7 @@ module processor(
 	 assign isLW = (~opcode[4])&(opcode[3])&(~opcode[2])&(~opcode[1])&(~opcode[0]); //01000
 	 assign isSW = (~opcode[4])&(~opcode[3])&(opcode[2])&(opcode[1])&(opcode[0]); //00111
 	 
-	 assign rd = instruction[26:22]; //destination register
+	 assign rd_temp = instruction[26:22]; //destination register --PC5 rd can be changed Jtype
 	 assign rs = instruction[21:17]; // source register
 	 assign rt = instruction[16:12]; // target ("second source") register
 	 assign immediate = instruction[16:0]; // get immediate in the case of an I type instruction
@@ -199,35 +199,31 @@ module processor(
         .overflow(branch_overflow_alu)
     );
 	 
-	 //PC5 ALU + circuity
-	 assign isBR = BR && branch_isNotEqual;
-	//======================================================================@TODO 
-	//======================================================================@
-	//======================================================================@
-	//======================================================================@
-	//======================================================================@
-	//======================================================================@
-	//======================================================================@ 
-	//update JI TArget for JR (and check shift left 2 like in slides)
-	 wire[26:0] JI_Target;
+	 //PC5 branching and jumping additions to reg file and pc
+	 assign isBR = BR && (branch_isNotEqual || branch_isLessThan);
+	 assign isJr = (~opcode[4])&(~opcode[3])&(opcode[2])&(~opcode[1])&(~opcode[0]); //00100
+
+	 wire[26:0] JI_Target;	
 	 assign JI_Target = instruction[26:0];
-	 assign pc_next = JP ? {5'b0, JI_Target} : // Extend JI_Target to 32 bits, guaranteed to never be used per instructions
-                     (isBR ? pc_next_branch : // If branch condition met, go to branch target
-                      pc_next_incremented); 
+	 wire[31:0] JI_Target_padded = {5'b0, JI_Target}; // Extend JI_Target to 32 bits, guaranteed to never be used per instructions
+	 assign pc_next = isJr ? data_readRegB : 
+                    (JP ? JI_Target_padded : 
+                    (isBR ? pc_next_branch : pc_next_incremented));
 	 
 	 // Assign write enable signal for regfile
-	 assign ctrl_writeEnable = Rwe;
-	 // ctrl_writeReg is $rstate ($31) is overflow, else it is $rd
-	 //assign ctrl_writeReg = overflow_alu ? 5'd30 : rd; 
+	 assign ctrl_writeEnable = Rwe; 
 	 assign ctrl_writeReg = overflow_alu ? (isAdd? 5'd30 : (isSub ? 5'd30 : (isAddi ? 5'd30 : rd))) : rd;
-	 // if overflow, then set if add, sub, or addi. else 0
-	 //assign rStatus = overflow_alu ? (isAdd? 32'd1 : (isSub ? 32'd3 : 32'd2)) : 32'd0;
 	 assign rStatus = overflow_alu ? (isAdd? 32'd1 : (isSub ? 32'd3 : (isAddi ? 32'd2 : 32'd0))) : 32'd0;
+	 
 	 //overwrite writeReg if overflow detected, q_dmem if Rwd is true, and the original data_writeReg if neither 
 	 assign overflow_alu_add_sub = (overflow_alu)&(isSub|isAdd|isAddi);
 	 assign write_data_reg = overflow_alu_add_sub ? rStatus : (Rwd ? q_dmem : alu_result);
-	 assign data_writeReg = write_data_reg;
 	 
+	 //choose beetwen writeReg or PC + 1 if jump or not. Choose rd based on instruction or if jump (r31)
+	 assign data_writeReg = isJP ? pc_next_incremented : write_data_reg;
+    assign rd = isJr ? rd_temp : 
+               (isJP ? 6'd31 : rd_temp);	 
+	 //DMEM
 	 assign address_dmem = alu_result[11:0];
 	 assign data = data_readRegB;
 	 assign wren = DMwe; // this is what separates lw and sw (lw = 0, sw = 1)
