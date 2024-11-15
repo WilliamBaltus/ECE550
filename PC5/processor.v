@@ -106,7 +106,7 @@ module processor(
 	 // PC-related wires
     wire [31:0] pc_current, pc_next, pc_next_branch, pc_next_incremented; 
 	 wire [31:0] increment_value = 32'd1; // Constant 1 for PC increment
-    wire isNotEqual, isLessThan, overflow_pc, overflow_alu; // ALU flags
+    wire isNotEqual, isLessThan, overflow_pc, overflow_alu, pc_isNotEqual, pc_isLessThan; // ALU flags
 	 wire [16:0] immediate;
 	 wire [31:0] immediate_sx;
 	 wire isAdd, isSub, isAddi, isLW, isSW, isBR, isJP, isJr, isBlt, isBex, isSetx;
@@ -129,8 +129,8 @@ module processor(
         .ctrl_ALUopcode(5'b00000),       // Opcode for addition
         .ctrl_shiftamt(5'b00000),        // No shift required
         .data_result(pc_next_incremented),           // Result assigned to pc_next
-        .isNotEqual(isNotEqual),
-        .isLessThan(isLessThan),
+        .isNotEqual(pc_isNotEqual),
+        .isLessThan(pc_isLessThan),
         .overflow(overflow_pc)
     );
 	 
@@ -163,7 +163,7 @@ module processor(
 	 assign immediate_sx = instruction[16] ? {15'b111111111111111, immediate} : {15'b000000000000000, immediate}; // immediate sx adjusted
 	 assign shamt = isAddi ? 5'b0 : instruction[11:7]; //shift amount
 	 assign ctrl_readRegA = rs; 
-	 assign ctrl_readRegB = isSW ? rd : rt;
+	 assign ctrl_readRegB = isSW ? rd: (isBR ? rd: rt);
 	 
 	 wire [31:0] ALU_readB;
 	 assign ALU_readB = ALUinB ? immediate_sx : data_readRegB; // Adjusts the second input to the addi_constant if necessary
@@ -198,14 +198,16 @@ module processor(
         .isLessThan(branch_isLessThan),
         .overflow(branch_overflow_alu)
     );
-	 
+		
 	 //PC5 branching and jumping additions to reg file and pc
-	 assign isBR = BR && (branch_isNotEqual || branch_isLessThan);
+	 assign isBR = BR & (isNotEqual | isLessThan);
 	 assign isJr = (~opcode[4])&(~opcode[3])&(opcode[2])&(~opcode[1])&(~opcode[0]); //00100
-
+	
 	 wire[26:0] JI_Target;	
 	 assign JI_Target = instruction[26:0];
 	 wire[31:0] JI_Target_padded = {5'b0, JI_Target}; // Extend JI_Target to 32 bits, guaranteed to never be used per instructions
+	 assign pc_next_branch =  branch_alu_result;
+	 
 	 assign pc_next = isJr ? data_readRegB : 
                     (JP ? JI_Target_padded : 
                     (isBR ? pc_next_branch : pc_next_incremented));

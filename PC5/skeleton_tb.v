@@ -54,12 +54,12 @@ module skeleton_tb;
             $display("Register %0d: %h (hex) --- %0d (signed decimal)", i, $signed(uut.my_regfile.registers[i]), $signed(uut.my_regfile.registers[i]));
         end
 
-        // Final check after more cycles to ensure all instructions have run
-        repeat (240) @(posedge processor_clock); // Final set of cycles
-        $display("Final register values after 360 processor cycles:");
-        for (i = 0; i < 32; i = i + 1) begin
-            $display("Register %0d: %h (hex) --- %0d (signed decimal)", i, $signed(uut.my_regfile.registers[i]), $signed(uut.my_regfile.registers[i]));
-        end
+//        // Final check after more cycles to ensure all instructions have run
+//        repeat (240) @(posedge processor_clock); // Final set of cycles
+//        $display("Final register values after 360 processor cycles:");
+//        for (i = 0; i < 32; i = i + 1) begin
+//            $display("Register %0d: %h (hex) --- %0d (signed decimal)", i, $signed(uut.my_regfile.registers[i]), $signed(uut.my_regfile.registers[i]));
+//        end
 
         // End simulation
         $display("Ending testbench.");

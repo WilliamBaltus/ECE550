@@ -1,0 +1,49 @@
+-- null
+DEPTH = 4096;
+WIDTH = 32;
+
+ADDRESS_RADIX = DEC;
+DATA_RADIX = BIN;
+
+CONTENT
+BEGIN
+    -- nop
+0000 : 00000000000000000000000000000000;
+    -- addi $13, $0, 1          # r13 = 1
+0001 : 00101011010000000000000000000001;
+    -- addi $14, $0, 2          # r14 = 2
+0002 : 00101011100000000000000000000010;
+    -- bne $13, $14, LABEL1     # Branch to LABEL1 if r13 != r14 (this branch will be taken)
+0003 : 00010011010111000000000000000001;
+    -- addi $15, $0, 200        # This line is skipped if branch is taken
+0004 : 00101011110000000000000011001000;
+    -- LABEL1: nop
+0005 : 00000000000000000000000000000000;
+    -- addi $15, $0, 100        # r15 = 100 (this line executes after branch)
+0006 : 00101011110000000000000001100100;
+    -- addi $16, $0, 1          # r16 = 1
+0007 : 00101100000000000000000000000001;
+    -- addi $17, $0, 1          # r17 = 1
+0008 : 00101100010000000000000000000001;
+    -- bne $16, $17, LABEL2     # Branch to LABEL2 if r16 != r17 (this branch will NOT be taken)
+0009 : 00010100001000100000000000000001;
+    -- addi $18, $0, 400        # r18 = 400 (this line executes because branch is NOT taken)
+0010 : 00101100100000000000000110010000;
+    -- LABEL2: nop
+0011 : 00000000000000000000000000000000;
+    -- addi $19, $0, 300        # r19 = 300 (this line executes after label)-- not executed since equal
+0012 : 00101100110000000000000100101100;
+    -- addi $20, $0, 400        # r20 = 400 (executed before jump)
+0013 : 00101101000000000000000110010000;
+    -- j TEST_JUMP              # Jump unconditionally to TEST_JUMP
+0014 : 00001000000000000000000000010000;
+    -- addi $21, $0, 500        # r21 = 500 (this line should be skipped due to the jump)
+0015 : 00101101010000000000000111110100;
+    -- TEST_JUMP: nop
+0016 : 00000000000000000000000000000000;
+    -- addi $22, $0, 600        # r22 = 600 (this line is executed after the jump)
+0017 : 00101101100000000000001001011000;
+    -- nop                      # End of program
+0018 : 00000000000000000000000000000000;
+[0019 .. 4095] : 00000000000000000000000000000000;
+END;
