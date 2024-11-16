@@ -171,7 +171,7 @@ module processor(
 	 assign immediate_sx = instruction[16] ? {15'b111111111111111, immediate} : {15'b000000000000000, immediate}; // immediate sx adjusted
 	 assign shamt = isAddi ? 5'b0 : instruction[11:7]; //shift amount
 	 assign ctrl_readRegA = rs; 
-	 assign ctrl_readRegB = (isSW | BR | isJr) ? rd : rt;
+	 assign ctrl_readRegB = (isSW | BR | isJr | isBlt) ? rd : rt;
 	 
 	 wire [31:0] ALU_readB;
 	 assign ALU_readB = ALUinB ? immediate_sx : data_readRegB; // Adjusts the second input to the addi_constant if necessary
@@ -216,10 +216,13 @@ module processor(
 	 assign JI_Target = instruction[26:0];
 	 wire [31:0] JI_Target_Padded = {5'b0, JI_Target};
 	 
-	 assign pc_next = isJr ? data_readRegB : 
+	 wire blt_truthy = ~(isLessThan) & isNotEqual;
+	 
+	 assign pc_next = blt_truthy ? pc_next_branch: // This is the PC = PC + 1 + N of blt since alu calculates (rs < rd) not (rd < rs)
+							(isJr ? data_readRegB : 
 							(JP ? JI_Target_Padded : // Extend JI_Target to 32 bits, guaranteed to never be used per instructions
                      (isBR ? pc_next_branch : // If branch condition met, go to branch target
-                      pc_next_incremented)); 
+                      pc_next_incremented))); 
 	 
 	 // Assign write enable signal for regfile
 	 assign ctrl_writeEnable = Rwe;
