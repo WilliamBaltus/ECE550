@@ -31,10 +31,10 @@ module control(instruction, Rwe, Rdst, ALUinB, DMwe, Rwd, ALUop, BR, JP);
 	//assign based on control truth table
 	assign Rwe = isRtype | isAddi | isLW | isJal | isSetx; //regwrite
 	assign Rdst = isRtype ? 1'b0 : 1'b1; //reg dst
-	assign ALUinB = isAddi | isSW | isLW | isBex | isSetx; //alusrc
+	assign ALUinB = isAddi | isSW | isLW; //alusrc
 	assign DMwe = isSW; //memwrite
 	assign Rwd = isLW; //memtoreg
-	assign BR = isBlt | isBne | isBex; //BR
-	assign JP = isJ | isJr | isJal; //JP
+	assign BR = isBlt | isBne; //BR
+	assign JP = isJ | isJal; //JP
 	
 endmodule

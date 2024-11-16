@@ -109,7 +109,7 @@ module processor(
     wire isNotEqual, isLessThan, overflow_pc, overflow_alu, pc_isNotEqual, pc_isLessThan; // ALU flags
 	 wire [16:0] immediate;
 	 wire [31:0] immediate_sx;
-	 wire isAdd, isSub, isAddi, isLW, isSW, isBR, isJP;
+	 wire isAdd, isSub, isAddi, isLW, isSW, isBR, isJP, isBranch, isJump;
 	 
 	 assign instruction = q_imem; // instruction is our imem value
 	 
@@ -155,6 +155,14 @@ module processor(
 	 assign isAddi = (~opcode[4])&(~opcode[3])&(opcode[2])&(~opcode[1])&(opcode[0]); //00101
 	 assign isLW = (~opcode[4])&(opcode[3])&(~opcode[2])&(~opcode[1])&(~opcode[0]); //01000
 	 assign isSW = (~opcode[4])&(~opcode[3])&(opcode[2])&(opcode[1])&(opcode[0]); //00111
+	 assign isJ = (~opcode[4])&(~opcode[3])&(~opcode[2])&(~opcode[1])&(opcode[0]); //00001
+	 assign isBne = (~opcode[4])&(~opcode[3])&(~opcode[2])&(opcode[1])&(~opcode[0]); //00010
+	 assign isJal = (~opcode[4])&(~opcode[3])&(~opcode[2])&(opcode[1])&(opcode[0]); //00011
+	 assign isJr = (~opcode[4])&(~opcode[3])&(opcode[2])&(~opcode[1])&(~opcode[0]); //00100
+	 assign isBlt = (~opcode[4])&(~opcode[3])&(opcode[2])&(opcode[1])&(~opcode[0]); //00110
+	 assign isBex = (opcode[4])&(~opcode[3])&(opcode[2])&(opcode[1])&(~opcode[0]); //10110
+	 assign isSetx = (opcode[4])&(~opcode[3])&(opcode[2])&(~opcode[1])&(opcode[0]); //10101
+	 
 	 
 	 assign rd = instruction[26:22]; //destination register
 	 assign rs = instruction[21:17]; // source register
@@ -163,7 +171,7 @@ module processor(
 	 assign immediate_sx = instruction[16] ? {15'b111111111111111, immediate} : {15'b000000000000000, immediate}; // immediate sx adjusted
 	 assign shamt = isAddi ? 5'b0 : instruction[11:7]; //shift amount
 	 assign ctrl_readRegA = rs; 
-	 assign ctrl_readRegB = isSW ? rd : (isBR ? rd : rt);
+	 assign ctrl_readRegB = (isSW | BR | isJr) ? rd : rt;
 	 
 	 wire [31:0] ALU_readB;
 	 assign ALU_readB = ALUinB ? immediate_sx : data_readRegB; // Adjusts the second input to the addi_constant if necessary
@@ -213,22 +221,28 @@ module processor(
 	//update JI TArget for JR (and check shift left 2 like in slides)
 	 wire[26:0] JI_Target;
 	 assign JI_Target = instruction[26:0];
-	 assign pc_next = JP ? {5'b0, JI_Target} : // Extend JI_Target to 32 bits, guaranteed to never be used per instructions
+	 wire [31:0] JI_Target_Padded = {5'b0, JI_Target};
+	 
+	 
+	 assign pc_next = isJr ? data_readRegB : 
+							(JP ? JI_Target_Padded : // Extend JI_Target to 32 bits, guaranteed to never be used per instructions
                      (isBR ? pc_next_branch : // If branch condition met, go to branch target
-                      pc_next_incremented); 
+                      pc_next_incremented)); 
+							 
+	 
 	 
 	 // Assign write enable signal for regfile
 	 assign ctrl_writeEnable = Rwe;
 	 // ctrl_writeReg is $rstate ($31) is overflow, else it is $rd
 	 //assign ctrl_writeReg = overflow_alu ? 5'd30 : rd; 
-	 assign ctrl_writeReg = overflow_alu ? (isAdd? 5'd30 : (isSub ? 5'd30 : (isAddi ? 5'd30 : rd))) : rd;
+	 assign ctrl_writeReg = isSetx ? 5'd30 : (overflow_alu ? (isAdd? 5'd30 : (isSub ? 5'd30 : (isAddi ? 5'd30 : rd))) : rd);
 	 // if overflow, then set if add, sub, or addi. else 0
 	 //assign rStatus = overflow_alu ? (isAdd? 32'd1 : (isSub ? 32'd3 : 32'd2)) : 32'd0;
 	 assign rStatus = overflow_alu ? (isAdd? 32'd1 : (isSub ? 32'd3 : (isAddi ? 32'd2 : 32'd0))) : 32'd0;
 	 //overwrite writeReg if overflow detected, q_dmem if Rwd is true, and the original data_writeReg if neither 
 	 assign overflow_alu_add_sub = (overflow_alu)&(isSub|isAdd|isAddi);
 	 assign write_data_reg = overflow_alu_add_sub ? rStatus : (Rwd ? q_dmem : alu_result);
-	 assign data_writeReg = write_data_reg;
+	 assign data_writeReg = isSetx ? JI_Target_Padded : write_data_reg;
 	 
 	 assign address_dmem = alu_result[11:0];
 	 assign data = data_readRegB;
