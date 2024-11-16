@@ -211,38 +211,28 @@ module processor(
 	 assign isBR = BR & isNotEqual;
 	 
 	 assign pc_next_branch = branch_alu_result;
-	//======================================================================@TODO 
-	//======================================================================@
-	//======================================================================@
-	//======================================================================@
-	//======================================================================@
-	//======================================================================@
-	//======================================================================@ 
-	//update JI TArget for JR (and check shift left 2 like in slides)
+
 	 wire[26:0] JI_Target;
 	 assign JI_Target = instruction[26:0];
 	 wire [31:0] JI_Target_Padded = {5'b0, JI_Target};
-	 
 	 
 	 assign pc_next = isJr ? data_readRegB : 
 							(JP ? JI_Target_Padded : // Extend JI_Target to 32 bits, guaranteed to never be used per instructions
                      (isBR ? pc_next_branch : // If branch condition met, go to branch target
                       pc_next_incremented)); 
-							 
-	 
 	 
 	 // Assign write enable signal for regfile
 	 assign ctrl_writeEnable = Rwe;
 	 // ctrl_writeReg is $rstate ($31) is overflow, else it is $rd
 	 //assign ctrl_writeReg = overflow_alu ? 5'd30 : rd; 
-	 assign ctrl_writeReg = isSetx ? 5'd30 : (overflow_alu ? (isAdd? 5'd30 : (isSub ? 5'd30 : (isAddi ? 5'd30 : rd))) : rd);
+	 assign ctrl_writeReg = isJal ? 5'd31 : (isSetx ? 5'd30 : (overflow_alu ? (isAdd? 5'd30 : (isSub ? 5'd30 : (isAddi ? 5'd30 : rd))) : rd));
 	 // if overflow, then set if add, sub, or addi. else 0
 	 //assign rStatus = overflow_alu ? (isAdd? 32'd1 : (isSub ? 32'd3 : 32'd2)) : 32'd0;
 	 assign rStatus = overflow_alu ? (isAdd? 32'd1 : (isSub ? 32'd3 : (isAddi ? 32'd2 : 32'd0))) : 32'd0;
 	 //overwrite writeReg if overflow detected, q_dmem if Rwd is true, and the original data_writeReg if neither 
 	 assign overflow_alu_add_sub = (overflow_alu)&(isSub|isAdd|isAddi);
 	 assign write_data_reg = overflow_alu_add_sub ? rStatus : (Rwd ? q_dmem : alu_result);
-	 assign data_writeReg = isSetx ? JI_Target_Padded : write_data_reg;
+	 assign data_writeReg = isJal ? pc_next_incremented : (isSetx ? JI_Target_Padded : write_data_reg);
 	 
 	 assign address_dmem = alu_result[11:0];
 	 assign data = data_readRegB;
