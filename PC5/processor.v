@@ -216,16 +216,23 @@ module processor(
 	 assign JI_Target = instruction[26:0];
 	 wire [31:0] JI_Target_Padded = {5'b0, JI_Target};
 	 
-	 wire rstatus_is_zero = ~(|data_readRegA);
+	 wire rstatus_is_zero = ~(|data_readRegA); // determines if r status is zero
+	 wire take_bex_branch = isBex & (~rstatus_is_zero);
 	 
-	 wire blt_truthy = ~(isLessThan) & isNotEqual; // This calculates the truthyness of blt since alu calculates (rs < rd) not (rd < rs)
+	 wire blt_truthy = isBlt & ~(isLessThan) & isNotEqual; // This calculates the truthyness of blt since alu calculates (rs < rd) not (rd < rs)
 	 
-	 assign pc_next = blt_truthy ? pc_next_branch: // This is the PC = PC + 1 + N of blt since alu calculates (rs < rd) not (rd < rs)
-							(isJr ? data_readRegB : 
-							((JP | rstatus_is_zero) ? JI_Target_Padded : // Extend JI_Target to 32 bits, guaranteed to never be used per instructions
-							// Note: rstatus_is_zero assigns PC = T for the Bex instruction
-                     (isBR ? pc_next_branch : // If branch condition met, go to branch target
-                      pc_next_incremented))); 
+	 //assign pc_next = blt_truthy ? pc_next_branch: // This is the PC = PC + 1 + N of blt since alu calculates (rs < rd) not (rd < rs)
+	 //						(isJr ? data_readRegB : 
+	 //						((JP | take_bex_branch) ? JI_Target_Padded : // Extend JI_Target to 32 bits, guaranteed to never be used per instructions
+	 //						// Note: take_bex_branch assigns PC = T for the Bex instruction
+    //                 (isBR ? pc_next_branch : // If branch condition met, go to branch target
+    //                  pc_next_incremented))); 
+	 
+	 assign pc_next = blt_truthy ? pc_next_branch :
+				 (isJr ? data_readRegB :
+				 (JP ? JI_Target_Padded :
+				 (take_bex_branch ? JI_Target_Padded :
+				 (isBR ? pc_next_branch : pc_next_incremented))));
 	 
 	 // Assign write enable signal for regfile
 	 assign ctrl_writeEnable = Rwe;

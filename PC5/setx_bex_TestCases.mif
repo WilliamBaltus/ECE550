@@ -1,0 +1,43 @@
+-- Memory Initialization File
+DEPTH = 4096;
+WIDTH = 32;
+
+ADDRESS_RADIX = DEC;
+DATA_RADIX = BIN;
+
+CONTENT
+BEGIN
+    -- Test Case 1: $rstatus is non-zero, branch should be taken
+    -- setx 100               # $rstatus = 100 (non-zero)
+0000 : 10101000000000000000000001100100;
+    -- bex 0005               # if ($rstatus != 0) PC = 5
+0001 : 10110000000000000000000000000101;
+    -- These instructions should be skipped if branch is taken
+    -- addi $1, $0, 1
+0002 : 00101000010000000000000000000001;
+    -- addi $2, $0, 2
+0003 : 00101000100000000000000000000010;
+    -- nop
+0004 : 00000000000000000000000000000000;
+    -- TARGET_LABEL:
+    -- Instructions after branch target
+    -- addi $3, $0, 3         # This instruction should execute after branch
+0005 : 00101000110000000000000000000011;
+    -- Test Case 2: $rstatus is zero, branch should not be taken
+    -- setx 0                 # $rstatus = 0
+0006 : 10101000000000000000000000000000;
+    -- bex 0010               # if ($rstatus != 0) PC = 16
+0007 : 10110000000000000000000000010000;
+    -- These instructions should execute because branch is not taken
+    -- addi $4, $0, 4
+0008 : 00101001000000000000000000000100;
+    -- addi $5, $0, 5
+0009 : 00101001010000000000000000000101;
+    -- nop
+0010 : 00000000000000000000000000000000;
+    -- Additional instructions to confirm program flow
+    -- addi $6, $0, 6         # This should execute after the branch is not taken
+0011 : 00101001100000000000000000000110;
+    -- End of program
+[0012 .. 4095] : 00000000000000000000000000000000;
+END;
