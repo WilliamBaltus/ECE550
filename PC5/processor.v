@@ -170,7 +170,7 @@ module processor(
 	 assign immediate = instruction[16:0]; // get immediate in the case of an I type instruction
 	 assign immediate_sx = instruction[16] ? {15'b111111111111111, immediate} : {15'b000000000000000, immediate}; // immediate sx adjusted
 	 assign shamt = isAddi ? 5'b0 : instruction[11:7]; //shift amount
-	 assign ctrl_readRegA = rs; 
+	 assign ctrl_readRegA = isBex ? 5'd30 : rs; 
 	 assign ctrl_readRegB = (isSW | BR | isJr | isBlt) ? rd : rt;
 	 
 	 wire [31:0] ALU_readB;
@@ -216,11 +216,14 @@ module processor(
 	 assign JI_Target = instruction[26:0];
 	 wire [31:0] JI_Target_Padded = {5'b0, JI_Target};
 	 
-	 wire blt_truthy = ~(isLessThan) & isNotEqual;
+	 wire rstatus_is_zero = ~(|data_readRegA);
+	 
+	 wire blt_truthy = ~(isLessThan) & isNotEqual; // This calculates the truthyness of blt since alu calculates (rs < rd) not (rd < rs)
 	 
 	 assign pc_next = blt_truthy ? pc_next_branch: // This is the PC = PC + 1 + N of blt since alu calculates (rs < rd) not (rd < rs)
 							(isJr ? data_readRegB : 
-							(JP ? JI_Target_Padded : // Extend JI_Target to 32 bits, guaranteed to never be used per instructions
+							((JP | rstatus_is_zero) ? JI_Target_Padded : // Extend JI_Target to 32 bits, guaranteed to never be used per instructions
+							// Note: rstatus_is_zero assigns PC = T for the Bex instruction
                      (isBR ? pc_next_branch : // If branch condition met, go to branch target
                       pc_next_incremented))); 
 	 
