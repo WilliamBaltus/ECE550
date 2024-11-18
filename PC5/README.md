@@ -26,3 +26,4 @@ This is the Data Memory for our project that is controlled by the skeleton. This
 ## All other files
 All of the other files in this were given to us. This includes skeleton, alu, and dffe.
 
+The primary changes from pc4 to pc5 was adding the opcodes for the new commands. After those were added we added ternary operators to handle the PC incremented (which also was an additional ALU to handle jumping by N + 1). We also added ternary operators for the r31 given jump can change this too. Overflow was kept as priority still. Added assembly.
