@@ -1,4 +1,4 @@
-module control(instruction, Rwe, Rdst, ALUinB, DMwe, Rwd, ALUop, BR, JP);
+module revised_control(instruction, Rwe, Rdst, ALUinB, DMwe, Rwd, ALUop, BR, JP);
 	input [31:0] instruction;
 	output Rdst, Rwe, ALUinB, DMwe, Rwd, BR, JP;
 	output [4:0] ALUop;

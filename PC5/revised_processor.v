@@ -48,7 +48,7 @@
  *
  */
 
-module processor(
+module revised_processor(
     // Control signals
     clock,                          // I: The master clock
     reset,                          // I: A reset signal
