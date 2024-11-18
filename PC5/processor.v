@@ -513,7 +513,7 @@ module processor(
 	// assign overflow_alu_add_sub = (overflow_alu)&(isSub|isAdd|isAddi);
     wire overflow_alu_add_sub = overflow_alu & (isSub | isAdd | isAddi);
 	 assign write_data_reg = overflow_alu_add_sub ? rStatus : (Rwd ? q_dmem : alu_result);
-	 assign data_writeReg = isJal ? pc_next_incremented : (isSetx ? JI_Target_Padded : write_data_reg);
+	 assign data_writeReg = isJal ? (pc_current + 31'd1) : (isSetx ? JI_Target_Padded : write_data_reg);
 	 
 	 assign address_dmem = alu_result[11:0];
 	 assign data = data_readRegB;

@@ -1,0 +1,105 @@
+-- null
+DEPTH = 4096;
+WIDTH = 32;
+
+ADDRESS_RADIX = DEC;
+DATA_RADIX = BIN;
+
+CONTENT
+BEGIN
+    -- nop                            # PC = 0 (increments PC by 1, no changes to registers)
+0000 : 00000000000000000000000000000000;
+    -- addi $2, $0, 5                 # PC = 1, $r2 = 5 (set $r2 to the target instruction address)
+0001 : 00101000100000000000000000000101;
+    -- jr $2                          # PC = 2, jump to instruction at address 5
+0002 : 00100000100000000000000000000000;
+    -- addi $3, $0, 300               # PC = 3 (skipped due to `jr`, $r3 remains 0)
+0003 : 00101000110000000000000100101100;
+    -- addi $4, $0, 400               # PC = 4 (skipped due to `jr`, $r4 remains 0)
+0004 : 00101001000000000000000110010000;
+    -- addi $5, $0, 5                 # PC = 5, $r5 = 5 (setup for comparison, $rd)
+0005 : 00101001010000000000000000000101;
+    -- addi $6, $0, 10                # PC = 6, $r6 = 10 (setup for comparison, $rs)
+0006 : 00101001100000000000000000001010;
+    -- blt $5, $6, BLT_TRUE           # PC = 7, branch to BLT_TRUE if $r5 < $r6 (branch taken)
+0007 : 00110001010011000000000000000001;
+    -- addi $7, $0, 1000              # PC = 8 (skipped due to `blt`, $r7 remains 0)
+0008 : 00101001110000000000001111101000;
+    -- BLT_TRUE: nop
+0009 : 00000000000000000000000000000000;
+    -- addi $7, $7, 5                 # PC = 9, $r7 = $r7 + 5 (modify $r7 as part of testing)
+0010 : 00101001110011100000000000000101;
+    -- addi $8, $0, 15                # PC = 10, $r8 = 15 (setup for comparison, $rd)
+0011 : 00101010000000000000000000001111;
+    -- addi $9, $0, 10                # PC = 11, $r9 = 10 (setup for comparison, $rs)
+0012 : 00101010010000000000000000001010;
+    -- blt $8, $9, BLT_FALSE          # PC = 12, branch to BLT_FALSE if $r8 < $r9 (branch not taken)
+0013 : 00110010000100100000000000000010;
+    -- addi $10, $0, 1500             # PC = 13, $r10 = 1500 (this line executes because branch not taken)
+0014 : 00101010100000000000010111011100;
+    -- j AFTER_BLT                    # PC = 14, jump to AFTER_BLT to skip BLT_FALSE code
+0015 : 00001000000000000000000000010011;
+    -- BLT_FALSE: nop
+0016 : 00000000000000000000000000000000;
+    -- addi $10, $0, 1500             # PC = 15, $r10 = 1500 (executed if branch taken)
+0017 : 00101010100000000000010111011100;
+    -- addi $10, $10, 50              # PC = 16, $r10 = $r10 + 50 (modify $r10 when branch taken)
+0018 : 00101010100101000000000000110010;
+    -- AFTER_BLT: nop
+0019 : 00000000000000000000000000000000;
+    -- addi $20, $0, 1234             # PC = 17, $r20 = 1234 (additional instruction to observe execution flow)
+0020 : 00101101000000000000010011010010;
+    -- addi $11, $0, 700              # PC = 18, $r11 = 700 (setup before jump and link)
+0021 : 00101010110000000000001010111100;
+    -- jal LABEL_JAL                  # PC = 19, jump to LABEL_JAL and store return address (PC + 1 = 20) in $r31
+0022 : 00011000000000000000000000100111;
+    -- addi $12, $0, 8000             # PC = 20, $r12 = 8000 (this line is executed after returning via `jr $31`)
+0023 : 00101011000000000001111101000000;
+    -- addi $12, $12, 100             # PC = 21, $r12 = $r12 + 100 (further test after returning)
+0024 : 00101011000110000000000001100100;
+    -- addi $13, $0, 500              # PC = 22, $r13 = 500 (setup before second jump and link)
+0025 : 00101011010000000000000111110100;
+    -- jal LABEL_JAL2                 # PC = 23, jump to LABEL_JAL2 and store return address (PC + 1 = 24) in $r31
+0026 : 00011000000000000000000000101011;
+    -- addi $14, $0, 1000             # PC = 24, $r14 = 1000 (this line is executed after returning via `jr $31`)
+0027 : 00101011100000000000001111101000;
+    -- addi $21, $0, 5678             # PC = 25, $r21 = 5678 (additional instruction to observe execution flow)
+0028 : 00101101010000000001011000101110;
+    -- addi $19, $0, 2000             # PC = 26, $r19 = 2000 (this line is executed after all jumps)
+0029 : 00101100110000000000011111010000;
+    -- addi $22, $0, 2222             # PC = 27, $r22 = 2222 (additional instructions)
+0030 : 00101101100000000000100010101110;
+    -- addi $23, $0, 2323             # PC = 28, $r23 = 2323
+0031 : 00101101110000000000100100010011;
+    -- addi $24, $0, 2424             # PC = 29, $r24 = 2424
+0032 : 00101110000000000000100101111000;
+    -- addi $25, $0, 2525             # PC = 30, $r25 = 2525
+0033 : 00101110010000000000100111011101;
+    -- addi $26, $0, 2626             # PC = 31, $r26 = 2626
+0034 : 00101110100000000000101001000010;
+    -- addi $27, $0, 2727             # PC = 32, $r27 = 2727
+0035 : 00101110110000000000101010100111;
+    -- addi $28, $0, 2828             # PC = 33, $r28 = 2828
+0036 : 00101111000000000000101100001100;
+    -- addi $29, $0, 2929             # PC = 34, $r29 = 2929
+0037 : 00101111010000000000101101110001;
+    -- addi $30, $0, 3030             # PC = 35, $r30 = 3030
+0038 : 00101111100000000000101111010110;
+    -- LABEL_JAL: nop
+0039 : 00000000000000000000000000000000;
+    -- addi $15, $0, 900              # PC = 36, $r15 = 900 (executed after first `jal`)
+0040 : 00101011110000000000001110000100;
+    -- addi $16, $0, 1000             # PC = 37, $r16 = 1000
+0041 : 00101100000000000000001111101000;
+    -- jr $31                         # PC = 38, return to the instruction after `jal` (PC = 20)
+0042 : 00100111110000000000000000000000;
+    -- LABEL_JAL2: nop
+0043 : 00000000000000000000000000000000;
+    -- addi $17, $0, 1200             # PC = 39, $r17 = 1200 (executed after second `jal`)
+0044 : 00101100010000000000010010110000;
+    -- addi $18, $0, 1300             # PC = 40, $r18 = 1300
+0045 : 00101100100000000000010100010100;
+    -- jr $31                         # PC = 41, return to the instruction after `jal` (PC = 24)
+0046 : 00100111110000000000000000000000;
+[0047 .. 4095] : 00000000000000000000000000000000;
+END;
