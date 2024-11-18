@@ -1,6 +1,7 @@
-# Project Checkpoint 4: Processor
+# Project Checkpoint 5: Processor
 Billy Toth (wrt10)<br>
 William Baltus (wjb40)<br>
+Tianxuan Sun (Luke -ts402) <br>
 ECE 550<br>
 Fall 2024 
 
