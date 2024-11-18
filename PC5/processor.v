@@ -496,7 +496,7 @@ module processor(
 		//		 (isBR ? pc_next_branch : pc_next_incremented))));
     assign pc_next = blt_truthy       ? pc_next_branch :
                     isJr             ? data_readRegB :
-                    isJ              ? JI_Target_Padded :
+                    JP              ? JI_Target_Padded :
                     take_bex_branch  ? JI_Target_Padded :
                     (isBR & ~isBlt)  ? pc_next_branch :
                     pc_next_incremented;
