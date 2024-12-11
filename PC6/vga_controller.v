@@ -124,6 +124,38 @@ always @(posedge iVGA_CLK) begin
     end
 end
 
+// Update occupancy grid based on snake body and food position
+always @(posedge iVGA_CLK or negedge iRST_n) begin
+    if (!iRST_n) 
+        occupancy_grid <= 144'b0;
+    else begin
+        // Clear the occupancy grid
+        occupancy_grid <= 144'b0;
+
+        // Mark snake body positions as occupied
+        for (i = 0; i < 4; i = i + 1) begin
+            occupancy_grid[snake_y[i] * 12 + snake_x[i]] <= 1'b1;
+        end
+        
+        // Mark food position as occupied
+        occupancy_grid[food_y * 12 + food_x] <= 1'b1;
+    end
+end
+
+// Randomly spawn new food periodically
+always @(posedge iVGA_CLK) begin : loop_block
+    if (move_counter == 21'd0) begin
+        // Find the first open position for new food
+        for (i = 0; i < 144; i = i + 1) begin
+            if (!occupancy_grid[i]) begin
+                food_x <= i % 12;
+                food_y <= i / 12;
+                disable loop_block; // End the loop
+            end
+        end
+    end
+end
+
 wire [9:0] pixel_x = ADDR % 640;
 wire [8:0] pixel_y = ADDR / 640;
 
