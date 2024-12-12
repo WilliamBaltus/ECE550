@@ -71,7 +71,10 @@ localparam GRID_TOP = 80;
 // Seven Segment Display Constants
 localparam SSD_WIDTH = 30;
 localparam SSD_HEIGHT = 30;
-localparam SSD_LEFT = GRID_LEFT - 40;  // Position SSD 40 pixels to the left of the grid
+// Define positions for three SSDs: SSD0 (Hundreds), SSD1 (Tens), SSD2 (Units)
+localparam SSD0_LEFT = GRID_LEFT - 120;  // Hundreds digit
+localparam SSD1_LEFT = GRID_LEFT - 80;  // Tens digit
+localparam SSD2_LEFT = GRID_LEFT - 40;       // Units digit
 localparam SSD_TOP = GRID_TOP;
 
 //=======================================================
@@ -232,7 +235,7 @@ always @(posedge iVGA_CLK) begin
 
                     // Check for food collision
                     if (next_x == food_x && next_y == food_y) begin
-                        if (snake_length < 8'd9) begin  //WIN CONDITION LENGTH @CHANGEME
+                        if (snake_length < 8'd143) begin  // Updated WIN CONDITION LENGTH
                             snake_length <= snake_length + 1;
                             need_new_food <= 1'b1;
                         end
@@ -341,88 +344,215 @@ end
 //=======================================================
 // Seven Segment Display Logic
 //=======================================================
-reg is_ssd;
-reg [6:0] ssd_segments;  // 7 segments: a, b, c, d, e, f, g
 
-// Decoder for single digit (0-9)
-reg [3:0] display_digit;
+// Digit Registers
+reg [3:0] display_digit0; // Units
+reg [3:0] display_digit1; // Tens
+reg [3:0] display_digit2; // Hundreds
 
+// Extract digits from snake_length
 always @(posedge iVGA_CLK) begin
-    // Ensure display_digit stays within 0-9
-    if (snake_length < 8'd10)
-        display_digit <= snake_length;
-    else
-        display_digit <= 4'd9;  // Cap at 9
-end
-
-// Seven Segment Decoder
-always @(*) begin
-    case(display_digit)
-        4'd0: ssd_segments = 7'b1111110; // 0
-        4'd1: ssd_segments = 7'b0110000; // 1
-        4'd2: ssd_segments = 7'b1101101; // 2
-        4'd3: ssd_segments = 7'b1111001; // 3
-        4'd4: ssd_segments = 7'b0110011; // 4
-        4'd5: ssd_segments = 7'b1011011; // 5
-        4'd6: ssd_segments = 7'b1011111; // 6
-        4'd7: ssd_segments = 7'b1110000; // 7
-        4'd8: ssd_segments = 7'b1111111; // 8
-        4'd9: ssd_segments = 7'b1111011; // 9
-        default: ssd_segments = 7'b0000000; // All segments off
-    endcase
-end
-
-// Seven Segment Display Detection
-always @(*) begin
-    is_ssd = 0;
-
-    if (
-        pixel_x >= SSD_LEFT && pixel_x < SSD_LEFT + SSD_WIDTH &&
-        pixel_y >= SSD_TOP && pixel_y < SSD_TOP + SSD_HEIGHT
-    ) begin
-        is_ssd = 1;
+    if (snake_length < 10) begin
+        display_digit2 <= 4'd0;
+        display_digit1 <= 4'd0;
+        display_digit0 <= snake_length;
+    end
+    else if (snake_length < 100) begin
+        display_digit2 <= 4'd0;
+        display_digit1 <= snake_length / 10;
+        display_digit0 <= snake_length % 10;
+    end
+    else begin
+        display_digit2 <= snake_length / 100;
+        display_digit1 <= (snake_length / 10) % 10;
+        display_digit0 <= snake_length % 10;
     end
 end
 
-// Define pixel positions relative to SSD area
-wire [4:0] ssd_pixel_x = pixel_x - SSD_LEFT;
-wire [4:0] ssd_pixel_y = pixel_y - SSD_TOP;
+// Seven Segment Decoder for Hundreds (SSD0)
+reg [6:0] ssd_segments0;
+always @(*) begin
+    case(display_digit2)
+        4'd0: ssd_segments0 = 7'b1111110; // 0
+        4'd1: ssd_segments0 = 7'b0110000; // 1
+        4'd2: ssd_segments0 = 7'b1101101; // 2
+        4'd3: ssd_segments0 = 7'b1111001; // 3
+        4'd4: ssd_segments0 = 7'b0110011; // 4
+        4'd5: ssd_segments0 = 7'b1011011; // 5
+        4'd6: ssd_segments0 = 7'b1011111; // 6
+        4'd7: ssd_segments0 = 7'b1110000; // 7
+        4'd8: ssd_segments0 = 7'b1111111; // 8
+        4'd9: ssd_segments0 = 7'b1111011; // 9
+        default: ssd_segments0 = 7'b0000000; // All segments off
+    endcase
+end
 
-// Define segment boundaries within SSD
-wire a_on = (ssd_pixel_y >= 0 && ssd_pixel_y < 5) && (ssd_pixel_x >= 5 && ssd_pixel_x < SSD_WIDTH - 5);
-wire b_on = (ssd_pixel_x >= SSD_WIDTH - 5 && ssd_pixel_x < SSD_WIDTH) && (ssd_pixel_y >= 5 && ssd_pixel_y < SSD_HEIGHT / 2);
-wire c_on = (ssd_pixel_x >= SSD_WIDTH - 5 && ssd_pixel_x < SSD_WIDTH) && (ssd_pixel_y >= SSD_HEIGHT / 2 && ssd_pixel_y < SSD_HEIGHT - 5);
-wire d_on = (ssd_pixel_y >= SSD_HEIGHT - 5 && ssd_pixel_y < SSD_HEIGHT) && (ssd_pixel_x >= 5 && ssd_pixel_x < SSD_WIDTH - 5);
-wire e_on = (ssd_pixel_x >= 0 && ssd_pixel_x < 5) && (ssd_pixel_y >= SSD_HEIGHT / 2 && ssd_pixel_y < SSD_HEIGHT - 5);
-wire f_on = (ssd_pixel_x >= 0 && ssd_pixel_x < 5) && (ssd_pixel_y >= 5 && ssd_pixel_y < SSD_HEIGHT / 2);
-wire g_on = (ssd_pixel_y >= SSD_HEIGHT / 2 - 2 && ssd_pixel_y < SSD_HEIGHT / 2 + 2) && (ssd_pixel_x >= 5 && ssd_pixel_x < SSD_WIDTH - 5);
+// Seven Segment Decoder for Tens (SSD1)
+reg [6:0] ssd_segments1;
+always @(*) begin
+    case(display_digit1)
+        4'd0: ssd_segments1 = 7'b1111110; // 0
+        4'd1: ssd_segments1 = 7'b0110000; // 1
+        4'd2: ssd_segments1 = 7'b1101101; // 2
+        4'd3: ssd_segments1 = 7'b1111001; // 3
+        4'd4: ssd_segments1 = 7'b0110011; // 4
+        4'd5: ssd_segments1 = 7'b1011011; // 5
+        4'd6: ssd_segments1 = 7'b1011111; // 6
+        4'd7: ssd_segments1 = 7'b1110000; // 7
+        4'd8: ssd_segments1 = 7'b1111111; // 8
+        4'd9: ssd_segments1 = 7'b1111011; // 9
+        default: ssd_segments1 = 7'b0000000; // All segments off
+    endcase
+end
 
-// Determine if the current pixel should light up based on the segment
-wire ssd_pixel = (a_on && ssd_segments[6]) ||
-                 (b_on && ssd_segments[5]) ||
-                 (c_on && ssd_segments[4]) ||
-                 (d_on && ssd_segments[3]) ||
-                 (e_on && ssd_segments[2]) ||
-                 (f_on && ssd_segments[1]) ||
-                 (g_on && ssd_segments[0]);
+// Seven Segment Decoder for Units (SSD2)
+reg [6:0] ssd_segments2;
+always @(*) begin
+    case(display_digit0)
+        4'd0: ssd_segments2 = 7'b1111110; // 0
+        4'd1: ssd_segments2 = 7'b0110000; // 1
+        4'd2: ssd_segments2 = 7'b1101101; // 2
+        4'd3: ssd_segments2 = 7'b1111001; // 3
+        4'd4: ssd_segments2 = 7'b0110011; // 4
+        4'd5: ssd_segments2 = 7'b1011011; // 5
+        4'd6: ssd_segments2 = 7'b1011111; // 6
+        4'd7: ssd_segments2 = 7'b1110000; // 7
+        4'd8: ssd_segments2 = 7'b1111111; // 8
+        4'd9: ssd_segments2 = 7'b1111011; // 9
+        default: ssd_segments2 = 7'b0000000; // All segments off
+    endcase
+end
+
+// Seven Segment Display Detection for SSD0 (Hundreds)
+reg is_ssd0;
+wire [4:0] ssd0_pixel_x = pixel_x - SSD0_LEFT;
+wire [4:0] ssd0_pixel_y = pixel_y - SSD_TOP;
+
+always @(*) begin
+    is_ssd0 = 0;
+    if (
+        pixel_x >= SSD0_LEFT && pixel_x < SSD0_LEFT + SSD_WIDTH &&
+        pixel_y >= SSD_TOP && pixel_y < SSD_TOP + SSD_HEIGHT
+    ) begin
+        is_ssd0 = 1;
+    end
+end
+
+// Define segment boundaries within SSD0 area
+wire a_on0 = (ssd0_pixel_y >= 0 && ssd0_pixel_y < 5) && (ssd0_pixel_x >= 5 && ssd0_pixel_x < SSD_WIDTH - 5);
+wire b_on0 = (ssd0_pixel_x >= SSD_WIDTH - 5 && ssd0_pixel_x < SSD_WIDTH) && (ssd0_pixel_y >= 5 && ssd0_pixel_y < SSD_HEIGHT / 2);
+wire c_on0 = (ssd0_pixel_x >= SSD_WIDTH - 5 && ssd0_pixel_x < SSD_WIDTH) && (ssd0_pixel_y >= SSD_HEIGHT / 2 && ssd0_pixel_y < SSD_HEIGHT - 5);
+wire d_on0 = (ssd0_pixel_y >= SSD_HEIGHT - 5 && ssd0_pixel_y < SSD_HEIGHT) && (ssd0_pixel_x >= 5 && ssd0_pixel_x < SSD_WIDTH - 5);
+wire e_on0 = (ssd0_pixel_x >= 0 && ssd0_pixel_x < 5) && (ssd0_pixel_y >= SSD_HEIGHT / 2 && ssd0_pixel_y < SSD_HEIGHT - 5);
+wire f_on0 = (ssd0_pixel_x >= 0 && ssd0_pixel_x < 5) && (ssd0_pixel_y >= 5 && ssd0_pixel_y < SSD_HEIGHT / 2);
+wire g_on0 = (ssd0_pixel_y >= SSD_HEIGHT / 2 - 2 && ssd0_pixel_y < SSD_HEIGHT / 2 + 2) && (ssd0_pixel_x >= 5 && ssd0_pixel_x < SSD_WIDTH - 5);
+
+// Determine if the current pixel should light up for SSD0
+wire ssd_pixel0 = (a_on0 && ssd_segments0[6]) ||
+                  (b_on0 && ssd_segments0[5]) ||
+                  (c_on0 && ssd_segments0[4]) ||
+                  (d_on0 && ssd_segments0[3]) ||
+                  (e_on0 && ssd_segments0[2]) ||
+                  (f_on0 && ssd_segments0[1]) ||
+                  (g_on0 && ssd_segments0[0]);
+
+// Seven Segment Display Detection for SSD1 (Tens)
+reg is_ssd1;
+wire [4:0] ssd1_pixel_x = pixel_x - SSD1_LEFT;
+wire [4:0] ssd1_pixel_y = pixel_y - SSD_TOP;
+
+always @(*) begin
+    is_ssd1 = 0;
+    if (
+        pixel_x >= SSD1_LEFT && pixel_x < SSD1_LEFT + SSD_WIDTH &&
+        pixel_y >= SSD_TOP && pixel_y < SSD_TOP + SSD_HEIGHT
+    ) begin
+        is_ssd1 = 1;
+    end
+end
+
+// Define segment boundaries within SSD1 area
+wire a_on1 = (ssd1_pixel_y >= 0 && ssd1_pixel_y < 5) && (ssd1_pixel_x >= 5 && ssd1_pixel_x < SSD_WIDTH - 5);
+wire b_on1 = (ssd1_pixel_x >= SSD_WIDTH - 5 && ssd1_pixel_x < SSD_WIDTH) && (ssd1_pixel_y >= 5 && ssd1_pixel_y < SSD_HEIGHT / 2);
+wire c_on1 = (ssd1_pixel_x >= SSD_WIDTH - 5 && ssd1_pixel_x < SSD_WIDTH) && (ssd1_pixel_y >= SSD_HEIGHT / 2 && ssd1_pixel_y < SSD_HEIGHT - 5);
+wire d_on1 = (ssd1_pixel_y >= SSD_HEIGHT - 5 && ssd1_pixel_y < SSD_HEIGHT) && (ssd1_pixel_x >= 5 && ssd1_pixel_x < SSD_WIDTH - 5);
+wire e_on1 = (ssd1_pixel_x >= 0 && ssd1_pixel_x < 5) && (ssd1_pixel_y >= SSD_HEIGHT / 2 && ssd1_pixel_y < SSD_HEIGHT - 5);
+wire f_on1 = (ssd1_pixel_x >= 0 && ssd1_pixel_x < 5) && (ssd1_pixel_y >= 5 && ssd1_pixel_y < SSD_HEIGHT / 2);
+wire g_on1 = (ssd1_pixel_y >= SSD_HEIGHT / 2 - 2 && ssd1_pixel_y < SSD_HEIGHT / 2 + 2) && (ssd1_pixel_x >= 5 && ssd1_pixel_x < SSD_WIDTH - 5);
+
+// Determine if the current pixel should light up for SSD1
+wire ssd_pixel1 = (a_on1 && ssd_segments1[6]) ||
+                  (b_on1 && ssd_segments1[5]) ||
+                  (c_on1 && ssd_segments1[4]) ||
+                  (d_on1 && ssd_segments1[3]) ||
+                  (e_on1 && ssd_segments1[2]) ||
+                  (f_on1 && ssd_segments1[1]) ||
+                  (g_on1 && ssd_segments1[0]);
+
+// Seven Segment Display Detection for SSD2 (Units)
+reg is_ssd2;
+wire [4:0] ssd2_pixel_x = pixel_x - SSD2_LEFT;
+wire [4:0] ssd2_pixel_y = pixel_y - SSD_TOP;
+
+always @(*) begin
+    is_ssd2 = 0;
+    if (
+        pixel_x >= SSD2_LEFT && pixel_x < SSD2_LEFT + SSD_WIDTH &&
+        pixel_y >= SSD_TOP && pixel_y < SSD_TOP + SSD_HEIGHT
+    ) begin
+        is_ssd2 = 1;
+    end
+end
+
+// Define segment boundaries within SSD2 area
+wire a_on2 = (ssd2_pixel_y >= 0 && ssd2_pixel_y < 5) && (ssd2_pixel_x >= 5 && ssd2_pixel_x < SSD_WIDTH - 5);
+wire b_on2 = (ssd2_pixel_x >= SSD_WIDTH - 5 && ssd2_pixel_x < SSD_WIDTH) && (ssd2_pixel_y >= 5 && ssd2_pixel_y < SSD_HEIGHT / 2);
+wire c_on2 = (ssd2_pixel_x >= SSD_WIDTH - 5 && ssd2_pixel_x < SSD_WIDTH) && (ssd2_pixel_y >= SSD_HEIGHT / 2 && ssd2_pixel_y < SSD_HEIGHT - 5);
+wire d_on2 = (ssd2_pixel_y >= SSD_HEIGHT - 5 && ssd2_pixel_y < SSD_HEIGHT) && (ssd2_pixel_x >= 5 && ssd2_pixel_x < SSD_WIDTH - 5);
+wire e_on2 = (ssd2_pixel_x >= 0 && ssd2_pixel_x < 5) && (ssd2_pixel_y >= SSD_HEIGHT / 2 && ssd2_pixel_y < SSD_HEIGHT - 5);
+wire f_on2 = (ssd2_pixel_x >= 0 && ssd2_pixel_x < 5) && (ssd2_pixel_y >= 5 && ssd2_pixel_y < SSD_HEIGHT / 2);
+wire g_on2 = (ssd2_pixel_y >= SSD_HEIGHT / 2 - 2 && ssd2_pixel_y < SSD_HEIGHT / 2 + 2) && (ssd2_pixel_x >= 5 && ssd2_pixel_x < SSD_WIDTH - 5);
+
+// Determine if the current pixel should light up for SSD2
+wire ssd_pixel2 = (a_on2 && ssd_segments2[6]) ||
+                  (b_on2 && ssd_segments2[5]) ||
+                  (c_on2 && ssd_segments2[4]) ||
+                  (d_on2 && ssd_segments2[3]) ||
+                  (e_on2 && ssd_segments2[2]) ||
+                  (f_on2 && ssd_segments2[1]) ||
+                  (g_on2 && ssd_segments2[0]);
+
+// Combine SSD pixel signals
+wire any_ssd_pixel = ssd_pixel0 || ssd_pixel1 || ssd_pixel2;
 
 //=======================================================
 // Color Assignment
 //=======================================================
-assign b_data = is_ssd ? (ssd_pixel ? 8'hFF : 8'h00) :
+// Assign colors based on SSDs, snake, food, and boundaries
+// Ensure only one assign statement per color channel
+assign b_data = (ssd_pixel0 && is_ssd0) ? 8'hFF :
+                (ssd_pixel1 && is_ssd1) ? 8'hFF :
+                (ssd_pixel2 && is_ssd2) ? 8'hFF :
                 is_snake ? (game_over ? 8'h00 : game_won ? 8'h00 : 8'hFF) : 
                 is_food ? 8'h00 : 
-                is_red_boundary ? 8'h00 : bgr_data[23:16];
+                is_red_boundary ? 8'h00 : 
+                bgr_data[23:16];
 
-assign g_data = is_ssd ? (ssd_pixel ? 8'h00 : 8'h00) :
+assign g_data = (ssd_pixel0 && is_ssd0) ? 8'h00 :
+                (ssd_pixel1 && is_ssd1) ? 8'h00 :
+                (ssd_pixel2 && is_ssd2) ? 8'h00 :
                 is_snake ? (game_won ? 8'hFF : 8'h00) : 
                 is_food ? 8'hFF : 
-                is_red_boundary ? 8'h00 : bgr_data[15:8];
+                is_red_boundary ? 8'h00 : 
+                bgr_data[15:8];
 
-assign r_data = is_ssd ? (ssd_pixel ? 8'hFF : 8'h00) :
+assign r_data = (ssd_pixel0 && is_ssd0) ? 8'hFF :
+                (ssd_pixel1 && is_ssd1) ? 8'hFF :
+                (ssd_pixel2 && is_ssd2) ? 8'hFF :
                 is_snake ? (game_over ? 8'hFF : 8'h00) : 
                 is_food ? 8'h00 : 
-                is_red_boundary ? 8'hFF : bgr_data[7:0];
+                is_red_boundary ? 8'hFF : 
+                bgr_data[7:0];
 
 //=======================================================
 // VGA Output Assignment
