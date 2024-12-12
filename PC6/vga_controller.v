@@ -1,31 +1,18 @@
 module vga_controller(
     // I/O Port Declarations
-    iRST_n,
-    iVGA_CLK,
-    oBLANK_n,
-    oHS,
-    oVS,
-    b_data,
-    g_data,
-    r_data,
-    move_up,
-    move_down,
-    move_left,
-    move_right
+    input iRST_n,
+    input iVGA_CLK,
+    output reg oBLANK_n,
+    output reg oHS,
+    output reg oVS,
+    output [7:0] b_data,
+    output [7:0] g_data, 
+    output [7:0] r_data,                        
+    input move_up,
+    input move_down,
+    input move_left,
+    input move_right
 );
-
-//=======================================================
-// Interface Declarations
-//=======================================================
-input iRST_n;
-input iVGA_CLK;
-input move_up, move_down, move_left, move_right;
-output reg oBLANK_n;
-output reg oHS;
-output reg oVS;
-output [7:0] b_data;
-output [7:0] g_data; 
-output [7:0] r_data;                        
 
 //=======================================================
 // VGA Signal Registers and Wires
@@ -47,15 +34,14 @@ reg [143:0] grid_occupancy;  // One bit per grid position
 reg [3:0] snake_x [0:141];   // Snake segments X positions
 reg [3:0] snake_y [0:141];   // Snake segments Y positions
 reg [7:0] snake_length;      // Current length of snake
-reg [1:0] food_zone;  // 00: top, 01: middle, 10: bottom
-reg [3:0] next_x;     // Added: Next head position
-reg [3:0] next_y;     // Added: Next head position
+reg [3:0] food_zone;          // 4 bits to represent 16 zones
+reg [3:0] next_x;     // Next head position X
+reg [3:0] next_y;     // Next head position Y
 reg [7:0] zone_start, zone_end; // Define zone boundaries based on current food_zone
 reg [4:0] zone_sequence_index;  // Track which of the 16 zones we're trying
 reg [3:0] zone_x, zone_y;  // Current zone coordinates
 reg [3:0] check_x, check_y;  // For food placement calculations
 reg [7:0] x_start, x_end, y_start, y_end;
-
 
 // Game Control
 reg [21:0] move_counter;
@@ -65,14 +51,14 @@ reg game_started;
 reg game_won;
 reg initial_move_made;  // Flag to track first movement
 
-
 // Food State
 reg [3:0] food_x;
 reg [3:0] food_y;
 reg need_new_food;
 
-// Loop variable
+// Loop variables
 integer i;
+integer j;  // Additional loop variable for nested loop
 
 //=======================================================
 // Display Constants
@@ -82,14 +68,20 @@ localparam GRID_SIZE = 12;
 localparam GRID_LEFT = 160;
 localparam GRID_TOP = 80;
 
+// Seven Segment Display Constants
+localparam SSD_WIDTH = 30;
+localparam SSD_HEIGHT = 30;
+localparam SSD_LEFT = GRID_LEFT - 40;  // Position SSD 40 pixels to the left of the grid
+localparam SSD_TOP = GRID_TOP;
+
 //=======================================================
 // Initial State
 //=======================================================
 initial begin
     // Snake initialization
-    snake_x[0] = 4'd6;
-    snake_y[0] = 4'd6;
-    snake_length = 8'd1;
+    snake_x[0] = 4'd0;
+    snake_y[0] = 4'd0;
+    snake_length = 8'd1; 
     current_direction = 2'b01;
     move_counter = 0;
     game_over = 1'b0;
@@ -99,10 +91,12 @@ initial begin
     food_y = 4'd2;
     need_new_food = 1'b0;
     grid_occupancy = 144'b0;
-    grid_occupancy[6 * 12 + 6] = 1'b1; // Initial snake position
-    grid_occupancy[2 * 12 + 2] = 1'b1; // Initial food position
-    food_zone = 2'b00;  // Start with top zone
-	 initial_move_made = 1'b0;
+    grid_occupancy[0 * 12 + 0] = 1'b1; // Initial snake position
+    grid_occupancy[0 * 12 + 0] = 1'b1; // Initial food position
+    food_zone = 4'b0000;  // Start with the first zone in the sequence
+    initial_move_made = 1'b0;
+    next_x = 4'd0;  // Initialize next_x to snake's initial X
+    next_y = 4'd0;  // Initialize next_y to snake's initial Y
 end
 
 //=======================================================
@@ -151,39 +145,40 @@ always @(posedge iVGA_CLK) begin
         game_started <= 1'b0;
         game_over <= 1'b0;
         game_won <= 1'b0;
-        snake_length <= 8'd1;
+        snake_length <= 8'd1;  
         need_new_food <= 1'b0;
-        food_zone <= 2'b00;
-        
+        food_zone <= 4'b0000;  // 4-bit reset
+
         // Reset positions
-        snake_x[0] <= 4'd6;
-        snake_y[0] <= 4'd6;
+        snake_x[0] <= 4'd0;
+        snake_y[0] <= 4'd0;
         food_x <= 4'd2;
         food_y <= 4'd2;
-        
+
         // Reset grid
         grid_occupancy <= 144'b0;
-        grid_occupancy[6 * 12 + 6] <= 1'b1; // Initial snake position
-        grid_occupancy[2 * 12 + 2] <= 1'b1; // Initial food position
-		  
-		  initial_move_made <= 1'b0;
+        grid_occupancy[0 * 12 + 0] <= 1'b1; // Initial snake position
+        grid_occupancy[0 * 12 + 0] <= 1'b1; // Initial food position
 
+        initial_move_made <= 1'b0;
+
+        // Initialize next positions
+        next_x <= 4'd0;  // Initialize next_x to snake's initial X
+        next_y <= 4'd0;  // Initialize next_y to snake's initial Y
     end
     else begin
         // Game start detection
         if (!game_started && (move_up || move_down || move_left || move_right)) begin
             game_started <= 1'b1;
-            
         end
-            
+
         // Direction updates
         if (!game_over && game_started) begin
-		  
-				if (!initial_move_made) begin
-					grid_occupancy[snake_y[0] * 12 + snake_x[0]] <= 1'b0;
-					initial_move_made <= 1'b1;
-			  end
-		  
+            if (!initial_move_made) begin
+                grid_occupancy[snake_y[0] * 12 + snake_x[0]] <= 1'b0;
+                initial_move_made <= 1'b1;
+            end
+
             if (move_up && current_direction != 2'b10)
                 current_direction <= 2'b00;
             else if (move_right && current_direction != 2'b11)
@@ -197,17 +192,17 @@ always @(posedge iVGA_CLK) begin
         // Movement and collision logic
         if (move_counter == 22'd99999999) begin
             move_counter <= 0;
-            
+
             if (!game_over && game_started) begin
-					 // Calculate next head position
-					 next_x = snake_x[0];
-					 next_y = snake_y[0];
-                
+                // Calculate next head position based on current direction
+                next_x = snake_x[0];
+                next_y = snake_y[0];
+
                 case (current_direction)
-                    2'b00: next_y = (snake_y[0] > 0) ? snake_y[0] - 1 : snake_y[0];
-                    2'b01: next_x = (snake_x[0] < 11) ? snake_x[0] + 1 : snake_x[0];
-                    2'b10: next_y = (snake_y[0] < 11) ? snake_y[0] + 1 : snake_y[0];
-                    2'b11: next_x = (snake_x[0] > 0) ? snake_x[0] - 1 : snake_x[0];
+                    2'b00: next_y = (snake_y[0] > 0) ? snake_y[0] - 1 : snake_y[0]; // Up
+                    2'b01: next_x = (snake_x[0] < 11) ? snake_x[0] + 1 : snake_x[0]; // Right
+                    2'b10: next_y = (snake_y[0] < 11) ? snake_y[0] + 1 : snake_y[0]; // Down
+                    2'b11: next_x = (snake_x[0] > 0) ? snake_x[0] - 1 : snake_x[0]; // Left
                 endcase
 
                 // Check collisions
@@ -219,38 +214,25 @@ always @(posedge iVGA_CLK) begin
                 end
                 else begin
                     // Clear tail position in grid
-                    grid_occupancy[snake_y[snake_length-1] * 12 + snake_x[snake_length-1]] <= 1'b0;
-                    
-                    // Move body in chunks
-                    for (i = 48; i >= 0; i = i - 1) begin
+                    if (snake_length > 0)
+                        grid_occupancy[snake_y[snake_length-1] * 12 + snake_x[snake_length-1]] <= 1'b0;
+
+                    // Move body segments
+                    for (i = 141; i > 0; i = i - 1) begin
                         if (i < snake_length) begin
-                            snake_x[i+1] <= snake_x[i];
-                            snake_y[i+1] <= snake_y[i];
-                        end
-                    end
-                    
-                    for (i = 97; i >= 49; i = i - 1) begin
-                        if (i < snake_length) begin
-                            snake_x[i+1] <= snake_x[i];
-                            snake_y[i+1] <= snake_y[i];
-                        end
-                    end
-                    
-                    for (i = 140; i >= 98; i = i - 1) begin
-                        if (i < snake_length) begin
-                            snake_x[i+1] <= snake_x[i];
-                            snake_y[i+1] <= snake_y[i];
+                            snake_x[i] <= snake_x[i-1];
+                            snake_y[i] <= snake_y[i-1];
                         end
                     end
 
-                    // Move head
+                    // Move head to new position
                     snake_x[0] <= next_x;
                     snake_y[0] <= next_y;
                     grid_occupancy[next_y * 12 + next_x] <= 1'b1;
 
                     // Check for food collision
                     if (next_x == food_x && next_y == food_y) begin
-                        if (snake_length < 8'd141) begin
+                        if (snake_length < 8'd9) begin  //WIN CONDITION LENGTH @CHANGEME
                             snake_length <= snake_length + 1;
                             need_new_food <= 1'b1;
                         end
@@ -261,62 +243,57 @@ always @(posedge iVGA_CLK) begin
                 end
             end
 
-            // Modify food spawning logic
-				if (need_new_food && !game_over && !game_won) begin
-					 reg found_spot;
-					 found_spot = 0;
+            // Modified Food Spawning Logic
+            if (need_new_food && !game_over && !game_won) begin
+                reg found_spot;
+                found_spot = 1'b0;
 
-					 // Calculate current zone based on sequence
-					 case(zone_sequence_index)
-						  5'd0:  begin zone_x = 0; zone_y = 0; end  // Top-left
-						  5'd1:  begin zone_x = 2; zone_y = 2; end  // Middle-right
-						  5'd2:  begin zone_x = 1; zone_y = 3; end  // Bottom-middle-left
-						  5'd3:  begin zone_x = 3; zone_y = 1; end  // Upper-middle-right
-						  5'd4:  begin zone_x = 0; zone_y = 2; end  // Middle-left
-						  5'd5:  begin zone_x = 2; zone_y = 0; end  // Top-middle-right
-						  5'd6:  begin zone_x = 1; zone_y = 1; end  // Upper-middle-left
-						  5'd7:  begin zone_x = 3; zone_y = 3; end  // Bottom-right
-						  5'd8:  begin zone_x = 2; zone_y = 1; end  // Upper-middle-right
-						  5'd9:  begin zone_x = 0; zone_y = 3; end  // Bottom-left
-						  5'd10: begin zone_x = 3; zone_y = 0; end  // Top-right
-						  5'd11: begin zone_x = 1; zone_y = 2; end  // Middle-middle-left
-						  5'd12: begin zone_x = 2; zone_y = 3; end  // Bottom-middle-right
-						  5'd13: begin zone_x = 0; zone_y = 1; end  // Upper-middle-left
-						  5'd14: begin zone_x = 3; zone_y = 2; end  // Middle-right
-						  5'd15: begin zone_x = 1; zone_y = 0; end  // Top-middle-left
-					 endcase
+                // Corrected food_zone to 4 bits and mapped to zone_start correctly
+                case(food_zone)
+                    4'd0:  zone_start = 24;  // Area 8 (row 2, col 0)
+                    4'd1:  zone_start = 9;   // Area 3 (row 0, col 3)
+                    4'd2:  zone_start = 45;  // Area 15 (row 3, col 3)
+                    4'd3:  zone_start = 0;   // Area 0 (row 0, col 0)
+                    4'd4:  zone_start = 21;  // Area 7 (row 1, col 3)
+                    4'd5:  zone_start = 36;  // Area 12 (row 3, col 0)
+                    4'd6:  zone_start = 6;   // Area 2 (row 0, col 2)
+                    4'd7:  zone_start = 30;  // Area 10 (row 2, col 2)
+                    4'd8:  zone_start = 15;  // Area 5 (row 1, col 1)
+                    4'd9:  zone_start = 42;  // Area 14 (row 3, col 2)
+                    4'd10: zone_start = 3;   // Area 1 (row 0, col 1)
+                    4'd11: zone_start = 27;  // Area 9 (row 2, col 1)
+                    4'd12: zone_start = 12;  // Area 4 (row 1, col 0)
+                    4'd13: zone_start = 39;  // Area 13 (row 3, col 1)
+                    4'd14: zone_start = 18;  // Area 6 (row 1, col 2)
+                    4'd15: zone_start = 33;  // Area 11 (row 2, col 3)
+                    default: zone_start = 0;  // Default case
+                endcase
 
-					 // Calculate zone boundaries
-					 x_start = zone_x * 3;  // Each zone is 3x3
-					 x_end = x_start + 3;
-					 y_start = zone_y * 3;
-					 y_end = y_start + 3;
+                // Check 3x3 cells in current area
+                for (i = 0; i < 3 && !found_spot; i = i + 1) begin
+                    for (j = 0; j < 3 && !found_spot; j = j + 1) begin
+                        if (!grid_occupancy[zone_start + i * 12 + j]) begin
+                            food_x <= j + (zone_start % 12);
+                            food_y <= i + (zone_start / 12);
+                            grid_occupancy[zone_start + i * 12 + j] <= 1'b1;
+                            need_new_food <= 1'b0;
+                            found_spot = 1'b1;
+                            food_zone <= (food_zone == 4'd15) ? 4'd0 : food_zone + 1;
+                        end
+                    end
+                end
 
-					 // Check this zone for open spots (max 9 iterations)
-					 for (i = 0; i < 9 && !found_spot; i = i + 1) begin
-						  check_x = x_start + (i % 3);
-						  check_y = y_start + (i / 3);
-						  if (!grid_occupancy[check_y * 12 + check_x]) begin
-								food_x <= check_x;
-								food_y <= check_y;
-								grid_occupancy[check_y * 12 + check_x] <= 1'b1;
-								need_new_food <= 1'b0;
-								found_spot = 1;
-						  end
-					 end
-
-					 // Move to next zone if no spot found
-					 if (!found_spot) begin
-						  zone_sequence_index <= (zone_sequence_index == 5'd15) ? 5'd0 : zone_sequence_index + 1;
-					 end
-				end
+                // If no spot found in current area, move to next
+                if (!found_spot) begin
+                    food_zone <= (food_zone == 4'd15) ? 4'd0 : food_zone + 1;
+                end
+            end
         end 
         else begin
             move_counter <= move_counter + 1;
         end
     end
 end
-
 //=======================================================
 // Display Logic
 //=======================================================
@@ -327,11 +304,12 @@ wire [8:0] pixel_y = ADDR / 640;
 reg is_red_boundary;
 always @(*) begin
     is_red_boundary = 0;
-    if ((pixel_x >= GRID_LEFT && pixel_x < GRID_LEFT + GRID_SIZE * BLOCK_SIZE && 
+    if (
+        (pixel_x >= GRID_LEFT && pixel_x < GRID_LEFT + GRID_SIZE * BLOCK_SIZE && 
          (pixel_y == GRID_TOP || pixel_y == GRID_TOP + GRID_SIZE * BLOCK_SIZE)) || 
         (pixel_y >= GRID_TOP && pixel_y < GRID_TOP + GRID_SIZE * BLOCK_SIZE && 
-         (pixel_x == GRID_LEFT || pixel_x == GRID_LEFT + GRID_SIZE * BLOCK_SIZE))) 
-    begin
+         (pixel_x == GRID_LEFT || pixel_x == GRID_LEFT + GRID_SIZE * BLOCK_SIZE))
+    ) begin
         is_red_boundary = 1;
     end
 end
@@ -345,13 +323,14 @@ reg [3:0] grid_y;
 always @(*) begin
     grid_x = (pixel_x - GRID_LEFT) / BLOCK_SIZE;
     grid_y = (pixel_y - GRID_TOP) / BLOCK_SIZE;
-    
+
     is_snake = 0;
     is_food = 0;
-    
-    if (pixel_x >= GRID_LEFT && pixel_x < GRID_LEFT + GRID_SIZE * BLOCK_SIZE &&
-        pixel_y >= GRID_TOP && pixel_y < GRID_TOP + GRID_SIZE * BLOCK_SIZE) begin
-        
+
+    if (
+        pixel_x >= GRID_LEFT && pixel_x < GRID_LEFT + GRID_SIZE * BLOCK_SIZE &&
+        pixel_y >= GRID_TOP && pixel_y < GRID_TOP + GRID_SIZE * BLOCK_SIZE
+    ) begin
         if (grid_x == food_x && grid_y == food_y)
             is_food = 1;
         else if (grid_occupancy[grid_y * 12 + grid_x])
@@ -360,15 +339,88 @@ always @(*) begin
 end
 
 //=======================================================
+// Seven Segment Display Logic
+//=======================================================
+reg is_ssd;
+reg [6:0] ssd_segments;  // 7 segments: a, b, c, d, e, f, g
+
+// Decoder for single digit (0-9)
+reg [3:0] display_digit;
+
+always @(posedge iVGA_CLK) begin
+    // Ensure display_digit stays within 0-9
+    if (snake_length < 8'd10)
+        display_digit <= snake_length;
+    else
+        display_digit <= 4'd9;  // Cap at 9
+end
+
+// Seven Segment Decoder
+always @(*) begin
+    case(display_digit)
+        4'd0: ssd_segments = 7'b1111110; // 0
+        4'd1: ssd_segments = 7'b0110000; // 1
+        4'd2: ssd_segments = 7'b1101101; // 2
+        4'd3: ssd_segments = 7'b1111001; // 3
+        4'd4: ssd_segments = 7'b0110011; // 4
+        4'd5: ssd_segments = 7'b1011011; // 5
+        4'd6: ssd_segments = 7'b1011111; // 6
+        4'd7: ssd_segments = 7'b1110000; // 7
+        4'd8: ssd_segments = 7'b1111111; // 8
+        4'd9: ssd_segments = 7'b1111011; // 9
+        default: ssd_segments = 7'b0000000; // All segments off
+    endcase
+end
+
+// Seven Segment Display Detection
+always @(*) begin
+    is_ssd = 0;
+
+    if (
+        pixel_x >= SSD_LEFT && pixel_x < SSD_LEFT + SSD_WIDTH &&
+        pixel_y >= SSD_TOP && pixel_y < SSD_TOP + SSD_HEIGHT
+    ) begin
+        is_ssd = 1;
+    end
+end
+
+// Define pixel positions relative to SSD area
+wire [4:0] ssd_pixel_x = pixel_x - SSD_LEFT;
+wire [4:0] ssd_pixel_y = pixel_y - SSD_TOP;
+
+// Define segment boundaries within SSD
+wire a_on = (ssd_pixel_y >= 0 && ssd_pixel_y < 5) && (ssd_pixel_x >= 5 && ssd_pixel_x < SSD_WIDTH - 5);
+wire b_on = (ssd_pixel_x >= SSD_WIDTH - 5 && ssd_pixel_x < SSD_WIDTH) && (ssd_pixel_y >= 5 && ssd_pixel_y < SSD_HEIGHT / 2);
+wire c_on = (ssd_pixel_x >= SSD_WIDTH - 5 && ssd_pixel_x < SSD_WIDTH) && (ssd_pixel_y >= SSD_HEIGHT / 2 && ssd_pixel_y < SSD_HEIGHT - 5);
+wire d_on = (ssd_pixel_y >= SSD_HEIGHT - 5 && ssd_pixel_y < SSD_HEIGHT) && (ssd_pixel_x >= 5 && ssd_pixel_x < SSD_WIDTH - 5);
+wire e_on = (ssd_pixel_x >= 0 && ssd_pixel_x < 5) && (ssd_pixel_y >= SSD_HEIGHT / 2 && ssd_pixel_y < SSD_HEIGHT - 5);
+wire f_on = (ssd_pixel_x >= 0 && ssd_pixel_x < 5) && (ssd_pixel_y >= 5 && ssd_pixel_y < SSD_HEIGHT / 2);
+wire g_on = (ssd_pixel_y >= SSD_HEIGHT / 2 - 2 && ssd_pixel_y < SSD_HEIGHT / 2 + 2) && (ssd_pixel_x >= 5 && ssd_pixel_x < SSD_WIDTH - 5);
+
+// Determine if the current pixel should light up based on the segment
+wire ssd_pixel = (a_on && ssd_segments[6]) ||
+                 (b_on && ssd_segments[5]) ||
+                 (c_on && ssd_segments[4]) ||
+                 (d_on && ssd_segments[3]) ||
+                 (e_on && ssd_segments[2]) ||
+                 (f_on && ssd_segments[1]) ||
+                 (g_on && ssd_segments[0]);
+
+//=======================================================
 // Color Assignment
 //=======================================================
-assign b_data = is_snake ? (game_over ? 8'h00 : game_won ? 8'h00 : 8'hFF) : 
+assign b_data = is_ssd ? (ssd_pixel ? 8'hFF : 8'h00) :
+                is_snake ? (game_over ? 8'h00 : game_won ? 8'h00 : 8'hFF) : 
                 is_food ? 8'h00 : 
                 is_red_boundary ? 8'h00 : bgr_data[23:16];
-assign g_data = is_snake ? (game_won ? 8'hFF : 8'h00) : 
+
+assign g_data = is_ssd ? (ssd_pixel ? 8'h00 : 8'h00) :
+                is_snake ? (game_won ? 8'hFF : 8'h00) : 
                 is_food ? 8'hFF : 
                 is_red_boundary ? 8'h00 : bgr_data[15:8];
-assign r_data = is_snake ? (game_over ? 8'hFF : 8'h00) : 
+
+assign r_data = is_ssd ? (ssd_pixel ? 8'hFF : 8'h00) :
+                is_snake ? (game_over ? 8'hFF : 8'h00) : 
                 is_food ? 8'h00 : 
                 is_red_boundary ? 8'hFF : bgr_data[7:0];
 
