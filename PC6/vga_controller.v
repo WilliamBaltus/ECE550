@@ -11,7 +11,8 @@ module vga_controller(
     input move_up,
     input move_down,
     input move_left,
-    input move_right
+    input move_right,
+	 input reset_game
 );
 
 //=======================================================
@@ -141,7 +142,7 @@ always @(posedge VGA_CLK_n)
 // Game Logic and Movement
 //=======================================================
 always @(posedge iVGA_CLK) begin
-    if (!iRST_n) begin
+    if (!iRST_n || reset_game) begin
         // Reset all game state
         current_direction <= 2'b01;
         move_counter <= 0;
@@ -245,52 +246,59 @@ always @(posedge iVGA_CLK) begin
                     end
                 end
             end
+				// Food spawning logic with zone cycling
+				// 0  1  2  3
+				// 4  5  6  7
+				// 8  9 10 11
+				// 12 13 14 15
+				//8 -> 3 -> 15 -> 0 -> 7 -> 12 -> 2 -> 10 -> 5 -> 14 -> 1 -> 9 -> 4 -> 13 -> 6 -> 11
+				if (need_new_food && !game_over && !game_won) begin
+					 reg found_spot;
+					 found_spot = 0;
 
-            // Modified Food Spawning Logic
-            if (need_new_food && !game_over && !game_won) begin
-                reg found_spot;
-                found_spot = 1'b0;
+					 // Calculate base position for each 3x3 area
+					 // Using sequence: 8,3,15,0,7,12,2,10,5,14,1,9,4,13,6,11
+					 case(food_zone)
+						  // Format: row = (n/4)*3, col = (n%4)*3
+						  4'd0:  zone_start = (2*12 + 0);     // Area 8  (row 2, col 0)
+						  4'd1:  zone_start = (0*12 + 9);     // Area 3  (row 0, col 3)
+						  4'd2:  zone_start = (3*12 + 9);     // Area 15 (row 3, col 3)
+						  4'd3:  zone_start = (0*12 + 0);     // Area 0  (row 0, col 0)
+						  4'd4:  zone_start = (1*12 + 9);     // Area 7  (row 1, col 3)
+						  4'd5:  zone_start = (3*12 + 0);     // Area 12 (row 3, col 0)
+						  4'd6:  zone_start = (0*12 + 6);     // Area 2  (row 0, col 2)
+						  4'd7:  zone_start = (2*12 + 6);     // Area 10 (row 2, col 2)
+						  4'd8:  zone_start = (1*12 + 3);     // Area 5  (row 1, col 1)
+						  4'd9:  zone_start = (3*12 + 6);     // Area 14 (row 3, col 2)
+						  4'd10: zone_start = (0*12 + 3);     // Area 1  (row 0, col 1)
+						  4'd11: zone_start = (2*12 + 3);     // Area 9  (row 2, col 1)
+						  4'd12: zone_start = (1*12 + 0);     // Area 4  (row 1, col 0)
+						  4'd13: zone_start = (3*12 + 3);     // Area 13 (row 3, col 1)
+						  4'd14: zone_start = (1*12 + 6);     // Area 6  (row 1, col 2)
+						  4'd15: zone_start = (2*12 + 9);     // Area 11 (row 2, col 3)
+						  default: zone_start = 0;
+					 endcase
 
-                // Corrected food_zone to 4 bits and mapped to zone_start correctly
-                case(food_zone)
-                    4'd0:  zone_start = 24;  // Area 8 (row 2, col 0)
-                    4'd1:  zone_start = 9;   // Area 3 (row 0, col 3)
-                    4'd2:  zone_start = 45;  // Area 15 (row 3, col 3)
-                    4'd3:  zone_start = 0;   // Area 0 (row 0, col 0)
-                    4'd4:  zone_start = 21;  // Area 7 (row 1, col 3)
-                    4'd5:  zone_start = 36;  // Area 12 (row 3, col 0)
-                    4'd6:  zone_start = 6;   // Area 2 (row 0, col 2)
-                    4'd7:  zone_start = 30;  // Area 10 (row 2, col 2)
-                    4'd8:  zone_start = 15;  // Area 5 (row 1, col 1)
-                    4'd9:  zone_start = 42;  // Area 14 (row 3, col 2)
-                    4'd10: zone_start = 3;   // Area 1 (row 0, col 1)
-                    4'd11: zone_start = 27;  // Area 9 (row 2, col 1)
-                    4'd12: zone_start = 12;  // Area 4 (row 1, col 0)
-                    4'd13: zone_start = 39;  // Area 13 (row 3, col 1)
-                    4'd14: zone_start = 18;  // Area 6 (row 1, col 2)
-                    4'd15: zone_start = 33;  // Area 11 (row 2, col 3)
-                    default: zone_start = 0;  // Default case
-                endcase
+					 // Check 3x3 cells in current area
+					for (i = 0; i < 3 && !found_spot; i = i + 1) begin
+						 for (j = 0; j < 3 && !found_spot; j = j + 1) begin
+							  if (!grid_occupancy[zone_start + i * 12 + j]) begin
+									food_x <= (zone_start % 12) + j;     // Keep the column offset from zone_start
+									food_y <= (zone_start / 12) + i;     // Add row offset
+									grid_occupancy[zone_start + i * 12 + j] <= 1'b1;
+									need_new_food <= 1'b0;
+									found_spot = 1'b1;
+									food_zone <= (food_zone == 4'd15) ? 4'd0 : food_zone + 1;
+							  end
+						 end
+					end
 
-                // Check 3x3 cells in current area
-                for (i = 0; i < 3 && !found_spot; i = i + 1) begin
-                    for (j = 0; j < 3 && !found_spot; j = j + 1) begin
-                        if (!grid_occupancy[zone_start + i * 12 + j]) begin
-                            food_x <= j + (zone_start % 12);
-                            food_y <= i + (zone_start / 12);
-                            grid_occupancy[zone_start + i * 12 + j] <= 1'b1;
-                            need_new_food <= 1'b0;
-                            found_spot = 1'b1;
-                            food_zone <= (food_zone == 4'd15) ? 4'd0 : food_zone + 1;
-                        end
-                    end
-                end
-
-                // If no spot found in current area, move to next
-                if (!found_spot) begin
-                    food_zone <= (food_zone == 4'd15) ? 4'd0 : food_zone + 1;
-                end
-            end
+					 // If no spot found in current area, move to next
+					 if (!found_spot) begin
+						  food_zone <= (food_zone == 4'd15) ? 4'd0 : food_zone + 1;
+					 end
+				end
+            
         end 
         else begin
             move_counter <= move_counter + 1;
