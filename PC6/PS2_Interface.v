@@ -4,7 +4,7 @@ module PS2_Interface(
    output ps2_key_pressed,
    output [7:0] ps2_key_data,
    output  reg[7:0]   last_data_received,
-   output reg move_up, move_down, move_left, move_right
+   output reg move_up, move_down, move_left, move_right, reset_game
 );
 
 
@@ -18,16 +18,26 @@ module PS2_Interface(
            move_down <= 1'b0;
            move_left <= 1'b0;
            move_right <= 1'b0;
+			  reset_game <= 1'b0;    // Initialize reset_game
            ascii_data <= 8'd32;  // Default to space character
        end
        else if (ps2_key_pressed) begin
            case (ps2_key_data)
+					8'h2D: begin  // 'R' key
+                   ascii_data <= 8'd82;  // ASCII for 'R'
+                   move_up <= 1'b0;
+                   move_down <= 1'b0;
+                   move_left <= 1'b0;
+                   move_right <= 1'b0;
+                   reset_game <= 1'b1;   // Trigger reset
+               end
                8'h1D: begin  // 'W' key
                    ascii_data <= 8'd87;  // ASCII for 'W'
                    move_up <= 1'b1;
                    move_down <= 1'b0;
                    move_left <= 1'b0;
                    move_right <= 1'b0;
+						 reset_game <= 1'b0;
                end
                8'h1B: begin  // 'S' key
                    ascii_data <= 8'd83;  // ASCII for 'S'
@@ -35,6 +45,7 @@ module PS2_Interface(
                    move_down <= 1'b1;
                    move_left <= 1'b0;
                    move_right <= 1'b0;
+						 reset_game <= 1'b0;
                end
                8'h1C: begin  // 'A' key
                    ascii_data <= 8'd65;  // ASCII for 'A'
@@ -42,6 +53,7 @@ module PS2_Interface(
                    move_down <= 1'b0;
                    move_left <= 1'b1;
                    move_right <= 1'b0;
+						 reset_game <= 1'b0;
                end
                8'h23: begin  // 'D' key
                    ascii_data <= 8'd68;  // ASCII for 'D'
@@ -49,6 +61,7 @@ module PS2_Interface(
                    move_down <= 1'b0;
                    move_left <= 1'b0;
                    move_right <= 1'b1;
+						 reset_game <= 1'b0;
                end
                default: begin  // Reset signals for any other key
                    ascii_data <= 8'd32;  // Space character
